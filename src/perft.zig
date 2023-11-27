@@ -54,4 +54,5 @@ pub fn perftTest(board_: *Board, depth: usize) !void {
     }
     std.debug.print("time taken: {}ms\n", .{timer.read() / 1000000});
     std.debug.print("nodes: {}\n", .{nodes});
+    nodes = 0;
 }

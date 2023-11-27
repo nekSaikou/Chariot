@@ -23,12 +23,10 @@ pub inline fn makeMove(board: *Board, move: Move, includeQuiet: bool) bool {
 
     if (move.capture == 1) {
         for (0..6) |capturedPiece| {
-            if (board.pieces[capturedPiece] & board.occupancy[board.side ^ 1] != 0) {
-                popBit(&board.pieces[capturedPiece], move.dest);
-                popBit(&board.occupancy[board.side ^ 1], move.dest);
-                break;
-            }
+            popBit(&board.pieces[capturedPiece], move.dest);
         }
+        popBit(&board.occupancy[board.side ^ 1], move.dest);
+        setBit(&board.pieces[move.piece], move.dest);
     }
 
     if (move.promo != 0) {
@@ -377,6 +375,7 @@ inline fn genKingMoves(board: Board, moveList: *MoveList) void {
                 if (board.castlingRights & 0b0010 != 0 and
                     getBit(board.occupancy[0] | board.occupancy[1], 59) == 0 and
                     getBit(board.occupancy[0] | board.occupancy[1], 58) == 0 and
+                    getBit(board.occupancy[0] | board.occupancy[1], 57) == 0 and
                     atk.getAttackers(board, 60, 1) == 0 and
                     atk.getAttackers(board, 59, 1) == 0)
                 {
@@ -407,6 +406,7 @@ inline fn genKingMoves(board: Board, moveList: *MoveList) void {
                 if (board.castlingRights & 0b1000 != 0 and
                     getBit(board.occupancy[0] | board.occupancy[1], 3) == 0 and
                     getBit(board.occupancy[0] | board.occupancy[1], 2) == 0 and
+                    getBit(board.occupancy[0] | board.occupancy[1], 1) == 0 and
                     atk.getAttackers(board, 4, 0) == 0 and
                     atk.getAttackers(board, 3, 0) == 0)
                 {
