@@ -5,6 +5,7 @@ const getBit = util.getBit;
 const setBit = util.setBit;
 const popBit = util.popBit;
 const pieceBB = util.pieceBB;
+const MAX_PLY: usize = 200;
 
 pub const Board = struct {
     // game state
@@ -16,6 +17,8 @@ pub const Board = struct {
     // bitboards
     pieces: [6]u64 = [_]u64{0} ** 6,
     occupancy: [2]u64 = [_]u64{0} ** 2,
+    killer: [MAX_PLY][2]Move = undefined,
+    moveScoreHistory: [6][64]i32 = undefined,
 
     pub fn allPieces(self: @This()) u64 {
         return self.occupancy[0] | self.occupancy[1];
@@ -111,9 +114,9 @@ pub const MoveList = struct {
 };
 
 pub const Move = packed struct(u22) {
-    src: u6,
-    dest: u6,
-    piece: u3,
+    src: u6 = 0,
+    dest: u6 = 0,
+    piece: u3 = 0,
     promo: u3 = 0,
     capture: u1 = 0,
     double: u1 = 0,

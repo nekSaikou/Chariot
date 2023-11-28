@@ -5,6 +5,7 @@ const setBit = @import("util.zig").setBit;
 const popBit = @import("util.zig").popBit;
 const pieceBB = @import("util.zig").pieceBB;
 const Board = @import("types.zig").Board;
+const Move = @import("types.zig").Move;
 
 // leaper pieces attack tables
 var pawnAttacks: [64][2]u64 = undefined;

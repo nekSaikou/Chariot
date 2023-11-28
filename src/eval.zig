@@ -58,7 +58,15 @@ pub inline fn evaluate(board: Board) i32 {
     }
 }
 
+inline fn estimateMoveValue(board: Board, move: Move) i32 {
+    var score: i32 = seeValues[atk.getCapturedPiece(board, move)];
+
+    if (move.promo != 0) score += seeValues[move.promo];
+    return score;
+}
+
 const matValues = [6]i32{ 100, 345, 360, 525, 1000, 10000 };
+const seeValues = [6]i32{ 100, 345, 360, 525, 1000, 0 };
 
 const pawnRelValues = [64]i32{
     // zig fmt: off
