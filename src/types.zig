@@ -1,4 +1,5 @@
 const std = @import("std");
+const stdout = std.io.getStdOut().writer();
 const util = @import("util.zig");
 const getBit = util.getBit;
 const setBit = util.setBit;
@@ -10,10 +11,15 @@ pub const Board = struct {
     side: u1,
     castlingRights: u4,
     epSqr: ?u6,
+    ply: usize = 0,
 
     // bitboards
     pieces: [6]u64,
     occupancy: [2]u64,
+
+    pub fn allPieces(self: @This()) u64 {
+        return self.occupancy[0] | self.occupancy[1];
+    }
 
     pub fn kingSqr(self: @This(), color: u1) u6 {
         return @intCast(@ctz(self.pieces[5] & self.occupancy[color]));
@@ -112,4 +118,17 @@ pub const Move = packed struct(u22) {
     double: u1 = 0,
     enpassant: u1 = 0,
     castling: u1 = 0,
+};
+
+pub const Square = enum(u6) {
+    // zig fmt: off
+    a8, b8, c8, d8, e8, f8, g8, h8,
+    a7, b7, c7, d7, e7, f7, g7, h7,
+    a6, b6, c6, d6, e6, f6, g6, h6,
+    a5, b5, c5, d5, e5, f5, g5, h5,
+    a4, b4, c4, d4, e4, f4, g4, h4,
+    a3, b3, c3, d3, e3, f3, g3, h3,
+    a2, b2, c2, d2, e2, f2, g2, h2,
+    a1, b1, c1, d1, e1, f1, g1, h1
+    // zig fmt: on
 };
