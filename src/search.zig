@@ -9,14 +9,24 @@ const moves = @import("moves.zig");
 const evaluate = @import("eval.zig").evaluate;
 const uci = @import("uci.zig");
 
-const MAX_PLY = 200;
+const MAX_PLY: usize = 200;
+const CHECKMATE: i32 = 49000;
 
 var bestMove: Move = .{ .src = 0, .dest = 0, .piece = 0 };
 var nodes: usize = 0;
 
-pub fn negamax(alpha_: i32, beta: i32, depth_: i8, board: *Board) i32 {
+pub fn negamax(alpha_: i32, beta_: i32, depth_: i8, board: *Board) i32 {
+    @setEvalBranchQuota(5000000);
     var alpha = alpha_;
+    var beta = beta_;
     var depth = depth_;
+
+    // prune mate
+    if (board.ply != 0) {
+        alpha = @max(alpha, -CHECKMATE + board.ply);
+        beta = @min(beta, CHECKMATE + board.ply - 1);
+    }
+    if (alpha >= beta) return alpha;
 
     if (depth == 0) return evaluate(board.*);
 
@@ -25,7 +35,7 @@ pub fn negamax(alpha_: i32, beta: i32, depth_: i8, board: *Board) i32 {
     var currentBest: Move = .{ .src = 0, .dest = 0, .piece = 0 };
 
     var legalCount: usize = 0;
-    var attacksOnKing: u64 = atk.getAttackers(board.*, board.kingSqr(board.side), board.side);
+    var attacksOnKing: u64 = atk.getAttackers(board.*, board.kingSqr(board.side), board.side ^ 1);
     // increase depth if either king is in check
     if (attacksOnKing != 0) depth += 1;
 
@@ -58,7 +68,7 @@ pub fn negamax(alpha_: i32, beta: i32, depth_: i8, board: *Board) i32 {
     }
 
     if (legalCount == 0) {
-        if (attacksOnKing != 0) return -49000 + @as(i32, @intCast(board.ply));
+        if (attacksOnKing != 0) return -CHECKMATE + @as(i32, @intCast(board.ply));
         return 0;
     }
 

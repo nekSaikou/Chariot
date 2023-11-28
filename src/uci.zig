@@ -12,7 +12,7 @@ const search = @import("search.zig");
 
 pub fn mainLoop() !void {
     var buf: [2048]u8 = undefined;
-    var board: Board = undefined;
+    var board: Board = .{};
 
     while (true) {
         const input = try stdin.readUntilDelimiterOrEof(&buf, '\n') orelse break;
@@ -49,7 +49,7 @@ pub fn parsePosition(board: *Board, command: []const u8) !void {
     var parts = std.mem.tokenizeSequence(u8, command[9..], " ");
     if (std.mem.eql(u8, parts.next().?, "startpos")) {
         try board.parseFEN(startpos);
-        if (parts.next() == null) return;
+        if (parts.peek() == null) return;
         if (std.mem.eql(u8, parts.next().?, "moves")) {
             while (parts.peek() != null) {
                 _ = moves.makeMove(board, parseMoveString(board.*, parts.next().?), true);
