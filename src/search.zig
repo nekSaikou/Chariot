@@ -11,6 +11,7 @@ const uci = @import("uci.zig");
 
 const MAX_PLY: usize = 200;
 const CHECKMATE: i32 = 49000;
+const R: i32 = 3; // reduction limit
 
 var nodes: usize = 0;
 
@@ -42,6 +43,26 @@ pub fn negamax(board: *Board, alpha_: i32, beta_: i32, depth_: i8) i32 {
     var attacksOnKing: u64 = atk.getAttackers(board.*, board.kingSqr(board.side), board.side ^ 1);
     // increase depth if either king is in check
     if (attacksOnKing != 0) depth += 1;
+
+    // apply null move pruning
+    if (board.nmp and attacksOnKing == 0 and depth >= 4 and board.ply > 0) {
+        // skip this step and turn NMP off during endgame
+        if (board.occupancy[0] | board.occupancy[1] == board.pieces[0] | board.pieces[1] or
+            @popCount(board.occupancy[0] | board.occupancy[1]) < 10)
+        {
+            board.nmp = false;
+        } else {
+            const boardCopy = board.*;
+
+            board.side ^= 1;
+            board.epSqr = null;
+            var score: i32 = -negamax(board, -beta, -beta + 1, @intCast(depth - 1 - R));
+
+            board.* = boardCopy;
+
+            if (score >= beta) return beta;
+        }
+    }
 
     var moveList: MoveList = .{};
     moves.genPseudoLegal(board.*, &moveList);

@@ -21,6 +21,7 @@ pub const Board = struct {
     // search flags
     scorePV: bool = false,
     followPV: bool = false,
+    nmp: bool = true,
 
     // bitboards
     pieces: [6]u64 = [_]u64{0} ** 6,
