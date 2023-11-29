@@ -14,11 +14,17 @@ pub const Board = struct {
     epSqr: ?u6 = null,
     ply: i32 = 0,
 
+    // search data
+    killer: [MAX_PLY][2]Move = undefined,
+    moveScoreHistory: [6][64]i32 = undefined,
+
+    // search flags
+    scorePV: bool = false,
+    followPV: bool = false,
+
     // bitboards
     pieces: [6]u64 = [_]u64{0} ** 6,
     occupancy: [2]u64 = [_]u64{0} ** 2,
-    killer: [MAX_PLY][2]Move = undefined,
-    moveScoreHistory: [6][64]i32 = undefined,
 
     pub fn allPieces(self: @This()) u64 {
         return self.occupancy[0] | self.occupancy[1];
@@ -29,9 +35,7 @@ pub const Board = struct {
     }
 
     pub fn parseFEN(self: *@This(), str: []const u8) !void {
-        @memset(&self.pieces, 0);
-        @memset(&self.occupancy, 0);
-        self.ply = 0;
+        self.* = Board{};
 
         var rank: u6 = 0;
         var file: u6 = 0;

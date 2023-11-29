@@ -41,7 +41,7 @@ pub fn parseGo(board: *Board, command: []const u8) !void {
     if (std.mem.eql(u8, parts.next().?, "depth"))
         depth = try std.fmt.parseInt(i8, parts.next().?, 10)
     else
-        depth = 5;
+        depth = 6;
     try search.searchPos(board, depth);
 }
 

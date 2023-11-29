@@ -12,7 +12,6 @@ const uci = @import("uci.zig");
 const MAX_PLY: usize = 200;
 const CHECKMATE: i32 = 49000;
 
-var bestMove: Move = .{};
 var nodes: usize = 0;
 
 pub fn negamax(board: *Board, alpha_: i32, beta_: i32, depth_: i8) i32 {
@@ -21,6 +20,9 @@ pub fn negamax(board: *Board, alpha_: i32, beta_: i32, depth_: i8) i32 {
     var beta = beta_;
     var depth = depth_;
 
+    var foundPV: bool = false;
+
+    pvLength[@intCast(board.ply)] = @intCast(board.ply);
     // prune mate
     if (board.ply != 0) {
         alpha = @max(alpha, -CHECKMATE + board.ply);
@@ -28,11 +30,13 @@ pub fn negamax(board: *Board, alpha_: i32, beta_: i32, depth_: i8) i32 {
     }
     if (alpha >= beta) return alpha;
 
-    if (depth == 0) return quiesecense(board, alpha, beta);
+    if (depth == 0) {
+        return quiesecense(board, alpha, beta);
+    }
+
+    if (board.ply >= MAX_PLY) return evaluate(board.*);
 
     nodes += 1;
-
-    var currentBest: Move = .{ .src = 0, .dest = 0, .piece = 0 };
 
     var legalCount: usize = 0;
     var attacksOnKing: u64 = atk.getAttackers(board.*, board.kingSqr(board.side), board.side ^ 1);
@@ -42,7 +46,9 @@ pub fn negamax(board: *Board, alpha_: i32, beta_: i32, depth_: i8) i32 {
     var moveList: MoveList = .{};
     moves.genPseudoLegal(board.*, &moveList);
 
-    sort(board.*, &moveList);
+    if (board.followPV) enablePvScoring(board, &moveList);
+
+    sort(board, &moveList);
 
     for (0..moveList.count) |count| {
         const boardCopy: Board = board.*;
@@ -55,11 +61,20 @@ pub fn negamax(board: *Board, alpha_: i32, beta_: i32, depth_: i8) i32 {
 
         legalCount += 1;
 
-        var score: i32 = -negamax(board, -beta, -alpha, depth - 1);
+        var score: i32 = undefined;
+
+        if (!foundPV) {
+            score = -negamax(board, -beta, -alpha, depth - 1);
+        } else {
+            score = -negamax(board, -alpha - 1, -alpha, depth - 1);
+            if (score > alpha) // move fail soft
+                score = -negamax(board, -beta, -alpha, depth - 1); // search again
+        }
 
         board.* = boardCopy;
 
         if (score >= beta) {
+            // store killer moves
             if (moveList.moves[count].capture == 0) {
                 board.killer[@intCast(board.ply)][1] = board.killer[@intCast(board.ply)][0];
                 board.killer[@intCast(board.ply)][0] = moveList.moves[count];
@@ -67,9 +82,21 @@ pub fn negamax(board: *Board, alpha_: i32, beta_: i32, depth_: i8) i32 {
             return beta;
         }
         if (score > alpha) {
+            // on quiet moves
+            if (moveList.moves[count].capture == 0)
+                board.moveScoreHistory[moveList.moves[count].piece][moveList.moves[count].dest] += depth;
+
+            // update alpha when better move is found
             alpha = score;
-            if (board.ply == 0)
-                currentBest = moveList.moves[count];
+            foundPV = true;
+
+            // collect PV
+            pvTable[@intCast(board.ply)][@intCast(board.ply)] = moveList.moves[count];
+
+            for (@intCast(board.ply + 1)..pvLength[@intCast(board.ply + 1)]) |nextPly|
+                pvTable[@intCast(board.ply)][nextPly] = pvTable[@intCast(board.ply + 1)][nextPly];
+
+            pvLength[@intCast(board.ply)] = pvLength[@intCast(board.ply + 1)];
         }
     }
 
@@ -77,8 +104,6 @@ pub fn negamax(board: *Board, alpha_: i32, beta_: i32, depth_: i8) i32 {
         if (attacksOnKing != 0) return -CHECKMATE + @as(i32, @intCast(board.ply));
         return 0;
     }
-
-    if (alpha != alpha_) bestMove = currentBest;
     return alpha;
 }
 
@@ -99,7 +124,7 @@ fn quiesecense(board: *Board, alpha_: i32, beta: i32) i32 {
     var moveList: MoveList = .{};
     moves.genPseudoLegal(board.*, &moveList);
 
-    sort(board.*, &moveList);
+    sort(board, &moveList);
 
     for (0..moveList.count) |count| {
         const boardCopy = board.*;
@@ -124,7 +149,7 @@ fn quiesecense(board: *Board, alpha_: i32, beta: i32) i32 {
     return alpha;
 }
 
-inline fn sort(board: Board, moveList: *MoveList) void {
+inline fn sort(board: *Board, moveList: *MoveList) void {
     var moveScore: [1024]i32 = undefined;
     for (0..moveList.count) |count| {
         moveScore[count] = scoreMove(board, moveList.moves[count]);
@@ -144,7 +169,24 @@ inline fn sort(board: Board, moveList: *MoveList) void {
     }
 }
 
-inline fn scoreMove(board: Board, move: Move) i32 {
+inline fn enablePvScoring(board: *Board, moveList: *MoveList) void {
+    board.followPV = false;
+    for (0..moveList.count) |count| {
+        if (@as(u22, @bitCast(pvTable[0][@intCast(board.ply)])) == @as(u22, @bitCast(moveList.moves[count]))) {
+            board.scorePV = true;
+            board.followPV = true;
+        }
+    }
+}
+
+inline fn scoreMove(board: *Board, move: Move) i32 {
+    if (board.scorePV) {
+        if (@as(u22, @bitCast(pvTable[0][@intCast(board.ply)])) == @as(u22, @bitCast(move))) {
+            board.scorePV = false;
+            return 20000;
+        }
+    }
+
     if (move.capture == 1) {
         // score by MMV-LVA
         for (0..6) |victim| {
@@ -162,14 +204,25 @@ inline fn scoreMove(board: Board, move: Move) i32 {
 }
 
 pub fn searchPos(board: *Board, depth: i8) !void {
-    var score: i32 = negamax(board, -50000, 50000, depth);
-    if (@as(u22, @bitCast(bestMove)) != 0) {
-        try stdout.print("info score cp {} depth {} nodes {}\n", .{ score, depth, nodes });
-        std.debug.print("nodes: {}\n", .{nodes});
-        nodes = 0;
-        try uci.printBestMove(bestMove);
+    @memset(&pvLength, 0);
+    @memset(&pvTable, undefined);
+    var score: i32 = 0;
+    nodes = 0;
+    for (1..@intCast(depth + 1)) |currentDepth| {
+        board.followPV = true;
+        score = negamax(board, -50000, 50000, depth);
+        try stdout.print("info score cp {} depth {} nodes {} pv", .{ score, currentDepth, nodes });
+        for (0..pvLength[0]) |count| {
+            try stdout.print(" {s}", .{util.uciMove(pvTable[0][count])});
+        }
+        try stdout.print(" \n", .{});
     }
+    std.debug.print("nodes: {}\n", .{nodes});
+    try uci.printBestMove(pvTable[0][0]);
 }
+
+var pvTable: [MAX_PLY][MAX_PLY]Move = undefined;
+var pvLength: [MAX_PLY]usize = [_]usize{0} ** MAX_PLY;
 
 const MVV_LVA = [6][6]i32{
     [6]i32{ 105, 205, 305, 405, 505, 605 },
