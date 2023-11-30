@@ -18,12 +18,13 @@ pub fn mainLoop() !void {
         const input = try stdin.readUntilDelimiterOrEof(&buf, '\n') orelse break;
 
         // zig fmt: off
-        if (std.mem.startsWith(u8, input, "quit")) break
+        if (std.mem.startsWith(u8, input, "quit") or std.mem.startsWith(u8, input, "stop")) break
         else if (std.mem.startsWith(u8, input, "ucinewgame")) try board.parseFEN(startpos)
         else if (std.mem.startsWith(u8, input, "uci")) try uciInfo()
         else if (std.mem.startsWith(u8, input, "position")) try parsePosition(&board, input)
         else if (std.mem.startsWith(u8, input, "isready")) try stdout.print("readyok\n", .{})
         else if (std.mem.startsWith(u8, input, "go")) try parseGo(&board, input)
+        else if (std.mem.startsWith(u8, input, "setoption")) try parseSetoption(input)
         else { try stdout.print("invalid input: {s}\n", .{input}); continue; }
         // zig fmt: on
     }
@@ -35,13 +36,19 @@ pub fn uciInfo() !void {
     try stdout.print("uciok\n", .{});
 }
 
+pub fn parseSetoption(command: []const u8) !void {
+    _ = command;
+    //TODO: implement options
+}
+
 pub fn parseGo(board: *Board, command: []const u8) !void {
     var parts = std.mem.tokenizeSequence(u8, command[3..], " ");
     var depth: i8 = -1;
     if (std.mem.eql(u8, parts.next().?, "depth"))
         depth = try std.fmt.parseInt(i8, parts.next().?, 10)
-    else
+    else {
         depth = 6;
+    }
     try search.searchPos(board, depth);
 }
 
@@ -89,6 +96,12 @@ fn parseMoveString(board: Board, str: []const u8) Move {
 }
 
 pub fn printBestMove(move: Move) !void {
+    // check for null move
+    if (@as(u22, @bitCast(move)) == 0) {
+        try stdout.print("bestmove 0000", .{});
+        return;
+    }
+
     try stdout.print("bestmove {s}{s}", .{
         @tagName(@as(Square, @enumFromInt(move.src))),
         @tagName(@as(Square, @enumFromInt(move.dest))),

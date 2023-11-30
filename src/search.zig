@@ -9,6 +9,7 @@ const moves = @import("moves.zig");
 const evaluate = @import("eval.zig").evaluate;
 const uci = @import("uci.zig");
 
+const INFINITY = 50000;
 const MAX_PLY: usize = 200;
 const CHECKMATE: i32 = 49000;
 const R: i32 = 3; // reduction limit
@@ -24,7 +25,7 @@ pub fn negamax(board: *Board, alpha_: i32, beta_: i32, depth_: i8) i32 {
     var foundPV: bool = false;
 
     pvLength[@intCast(board.ply)] = @intCast(board.ply);
-    // prune mate
+    // prune mate distance
     if (board.ply != 0) {
         alpha = @max(alpha, -CHECKMATE + board.ply);
         beta = @min(beta, CHECKMATE + board.ply - 1);
@@ -228,15 +229,23 @@ pub fn searchPos(board: *Board, depth: i8) !void {
     @memset(&pvLength, 0);
     @memset(&pvTable, undefined);
     var score: i32 = 0;
+    var alpha: i32 = -INFINITY;
+    var beta: i32 = INFINITY;
     nodes = 0;
+
     for (1..@intCast(depth + 1)) |currentDepth| {
         board.followPV = true;
-        score = negamax(board, -50000, 50000, depth);
+
+        score = negamax(board, alpha, beta, depth);
+
         try stdout.print("info score cp {} depth {} nodes {} pv", .{ score, currentDepth, nodes });
         for (0..pvLength[0]) |count| {
             try stdout.print(" {s}", .{util.uciMove(pvTable[0][count])});
         }
         try stdout.print(" \n", .{});
+
+        alpha = score - 50;
+        beta = score + 50;
     }
     std.debug.print("nodes: {}\n", .{nodes});
     try uci.printBestMove(pvTable[0][0]);

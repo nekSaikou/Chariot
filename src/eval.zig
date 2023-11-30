@@ -5,6 +5,7 @@ const setBit = util.setBit;
 const popBit = util.popBit;
 const pieceBB = util.pieceBB;
 const atk = @import("attacks.zig");
+const Square = @import("types.zig").Square;
 const Board = @import("types.zig").Board;
 const Move = @import("types.zig").Move;
 const MoveList = @import("types.zig").MoveList;
@@ -51,6 +52,36 @@ pub inline fn evaluate(board: Board) i32 {
             }
         }
     }
+
+    // penalize blocking c-pawn in closed position
+    if (getBit(board.occupancy[0] | board.pieces[0], @intFromEnum(Square.c2)) == 1 and
+        getBit(board.occupancy[0] | board.pieces[1], @intFromEnum(Square.c3)) == 1 and
+        getBit(board.occupancy[0] | board.pieces[0], @intFromEnum(Square.d4)) == 1 and
+        getBit(board.occupancy[0] | board.pieces[0], @intFromEnum(Square.e4)) == 0)
+        switch (board.side) {
+            0 => score -= 40,
+            1 => score += 40,
+        };
+    if (getBit(board.occupancy[1] | board.pieces[0], @intFromEnum(Square.c7)) == 1 and
+        getBit(board.occupancy[1] | board.pieces[1], @intFromEnum(Square.c6)) == 1 and
+        getBit(board.occupancy[1] | board.pieces[0], @intFromEnum(Square.d5)) == 1 and
+        getBit(board.occupancy[1] | board.pieces[0], @intFromEnum(Square.e5)) == 0)
+        switch (board.side) {
+            0 => score += 40,
+            1 => score -= 40,
+        };
+
+    // give extra score for bishop pair
+    if (@popCount(board.occupancy[0] | board.pieces[2]) == 2)
+        switch (board.side) {
+            0 => score += 20,
+            1 => score -= 20,
+        };
+    if (@popCount(board.occupancy[1] | board.pieces[2]) == 2)
+        switch (board.side) {
+            0 => score -= 20,
+            1 => score += 20,
+        };
 
     switch (board.side) {
         0 => return score,
