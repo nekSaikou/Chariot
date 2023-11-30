@@ -24,12 +24,12 @@ pub const Board = struct {
 
     pub inline fn getAttackers(self: @This(), sqr: u6, color: u1) u64 {
         const occupancy = self.occupancy[0] | self.occupancy[1];
-        return (atk.getPawnAttacks(sqr, color ^ 1) & pieceBB(0, color)) |
-            (atk.getKnightAttacks(sqr) & (pieceBB(1, color))) |
-            (atk.getBishopAttacks(sqr, occupancy) & (pieceBB(2, color))) |
-            (atk.getRookAttacks(sqr, occupancy) & (pieceBB(3, color))) |
-            (atk.getQueenAttacks(sqr, occupancy) & (pieceBB(4, color))) |
-            (atk.getKingAttacks(sqr) & (pieceBB(5, color)));
+        return (atk.getPawnAttacks(sqr, color ^ 1) & pieceBB(self, 0, color)) |
+            (atk.getKnightAttacks(sqr) & (pieceBB(self, 1, color))) |
+            (atk.getBishopAttacks(sqr, occupancy) & (pieceBB(self, 2, color))) |
+            (atk.getRookAttacks(sqr, occupancy) & (pieceBB(self, 3, color))) |
+            (atk.getQueenAttacks(sqr, occupancy) & (pieceBB(self, 4, color))) |
+            (atk.getKingAttacks(sqr) & (pieceBB(self, 5, color)));
     }
 
     pub fn parseFEN(self: *@This(), str: []const u8) !void {
@@ -110,15 +110,26 @@ pub const Board = struct {
     }
 };
 
+pub const MoveList = struct {
+    moves: [256]ScoredMove = undefined,
+    count: usize = 0,
+};
+
+pub const ScoredMove = struct {
+    move: Move = .{},
+    piece: u3 = 0,
+    score: i32 = 0,
+};
+
 pub const Move = packed struct(u16) {
     src: u6 = 0,
     dest: u6 = 0,
     promo: u1 = 0,
     capture: u1 = 0,
-    flagA: u1 = 0,
-    flagB: u1 = 0,
+    specA: u1 = 0, // responsible for castling and promotion flags
+    specB: u1 = 0, // responsible for ep/dp and promotion flags
 
-    //  code 	promo   capture	flagA  	flagB  	kind of move
+    //  code 	promo   capture	specA  	specB  	kind of move
     //  0 	0 	0 	0 	0 	quiet moves
     //  1 	0 	0 	0 	1 	double pawn push
     //  2 	0 	0 	1 	0 	king castle
