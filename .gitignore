@@ -1,2 +1,5 @@
+# compiled binary and cache
 zig-out/
 zig-cache/
+# irrelevant file used for debugging
+src/test.zig

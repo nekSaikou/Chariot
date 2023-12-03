@@ -4,15 +4,15 @@ const getBit = @import("bitboard.zig").getBit;
 const setBit = @import("bitboard.zig").setBit;
 const popBit = @import("bitboard.zig").popBit;
 
-const MAX_PLY: usize = 200;
+pub const MAX_PLY: usize = 200;
 
 pub const Board = struct {
     // game state
     side: u1 = 0,
-    castlingRights: u4 = 0,
+    castle: u4 = 0,
     epSqr: ?u6 = null,
     ply: usize = 0,
-    move: usize = 0,
+    hmc: usize = 0, // for fifty moves rule
 
     // bitboards
     pieces: [6]u64 = [_]u64{0} ** 6,
@@ -20,6 +20,14 @@ pub const Board = struct {
 
     pub inline fn pieceBB(self: @This(), piece: u3, color: u1) u64 {
         return self.pieces[piece] & self.occupancy[color];
+    }
+
+    pub fn allPieces(self: @This()) u64 {
+        return self.occupancy[0] | self.occupancy[1];
+    }
+
+    pub fn kingSqr(self: @This(), color: u1) u6 {
+        return @intCast(@ctz(self.pieces[5] & self.occupancy[color]));
     }
 
     pub inline fn getAttackers(self: @This(), sqr: u6, color: u1) u64 {
@@ -93,10 +101,10 @@ pub const Board = struct {
         const castling = parts.next().?;
         for (castling) |char| {
             switch (char) {
-                'K' => self.castlingRights |= 0b0001,
-                'Q' => self.castlingRights |= 0b0010,
-                'k' => self.castlingRights |= 0b0100,
-                'q' => self.castlingRights |= 0b1000,
+                'K' => self.castle |= 0b0001,
+                'Q' => self.castle |= 0b0010,
+                'k' => self.castle |= 0b0100,
+                'q' => self.castle |= 0b1000,
                 '-' => break,
                 else => unreachable,
             }
@@ -110,40 +118,38 @@ pub const Board = struct {
     }
 };
 
+pub const Undo = struct {
+    castle: u4 = 0,
+    epSqr: ?u6 = null,
+    hmc: usize = 0,
+    capture: u3 = 6,
+};
+
+pub const PVTable = struct {
+    pvLength: [MAX_PLY + 1]usize = undefined,
+    pvArray: [MAX_PLY + 1][MAX_PLY + 1]Move = undefined,
+};
+
 pub const MoveList = struct {
-    moves: [256]ScoredMove = undefined,
+    moves: [256]ScoredMove = [_]ScoredMove{.{}} ** 256,
     count: usize = 0,
 };
 
 pub const ScoredMove = struct {
     move: Move = .{},
-    piece: u3 = 0,
     score: i32 = 0,
 };
 
-pub const Move = packed struct(u16) {
+pub const Move = packed struct(u20) {
     src: u6 = 0,
     dest: u6 = 0,
-    promo: u1 = 0,
-    capture: u1 = 0,
-    specA: u1 = 0, // responsible for castling and promotion flags
-    specB: u1 = 0, // responsible for ep/dp and promotion flags
+    flag: u4 = 0,
+    piece: u3 = 0,
+    color: u1 = 0,
 
-    //  code 	promo   capture	specA  	specB  	kind of move
-    //  0 	0 	0 	0 	0 	quiet moves
-    //  1 	0 	0 	0 	1 	double pawn push
-    //  2 	0 	0 	1 	0 	king castle
-    //  3 	0 	0 	1 	1 	queen castle
-    //  4 	0 	1 	0 	0 	captures
-    //  5 	0 	1 	0 	1 	ep-capture
-    //  8 	1 	0 	0 	0 	knight-promotion
-    //  9 	1 	0 	0 	1 	bishop-promotion
-    //  10 	1 	0 	1 	0 	rook-promotion
-    //  11 	1 	0 	1 	1 	queen-promotion
-    //  12 	1 	1 	0 	0 	knight-promo capture
-    //  13 	1 	1 	0 	1 	bishop-promo capture
-    //  14 	1 	1 	1 	0 	rook-promo capture
-    //  15 	1 	1 	1 	1 	queen-promo capture
+    pub inline fn getMoveKey(self: @This()) u16 {
+        return @truncate(@as(u20, @bitCast(self)));
+    }
 };
 
 pub const Square = enum(u6) {
