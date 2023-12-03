@@ -13,10 +13,14 @@ pub const Board = struct {
     epSqr: ?u6 = null,
     ply: usize = 0,
     hmc: usize = 0, // for fifty moves rule
+    checks: usize = 0,
 
     // bitboards
     pieces: [6]u64 = [_]u64{0} ** 6,
     occupancy: [2]u64 = [_]u64{0} ** 2,
+    checkMask: u64 = 0,
+    pinDiag: u64 = 0,
+    pinOrth: u64 = 0,
 
     pub inline fn pieceBB(self: @This(), piece: u3, color: u1) u64 {
         return self.pieces[piece] & self.occupancy[color];
@@ -118,13 +122,6 @@ pub const Board = struct {
     }
 };
 
-pub const Undo = struct {
-    castle: u4 = 0,
-    epSqr: ?u6 = null,
-    hmc: usize = 0,
-    capture: u3 = 6,
-};
-
 pub const PVTable = struct {
     pvLength: [MAX_PLY + 1]usize = undefined,
     pvArray: [MAX_PLY + 1][MAX_PLY + 1]Move = undefined,
@@ -150,6 +147,23 @@ pub const Move = packed struct(u20) {
     pub inline fn getMoveKey(self: @This()) u16 {
         return @truncate(@as(u20, @bitCast(self)));
     }
+};
+
+pub const MoveType = enum(usize) {
+    Quiet,
+    doublePush,
+    KSCastle,
+    QSCastle,
+    Capture,
+    enPassant,
+    knightPromo = 8,
+    bishopPromo,
+    rookPromo,
+    queenPromo,
+    knightCapturePromo,
+    bishopCapturePromo,
+    rookCapturePromo,
+    queenCapturePromo,
 };
 
 pub const Square = enum(u6) {

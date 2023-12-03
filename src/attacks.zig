@@ -13,6 +13,8 @@ var rookAttacks: [64][4096]u64 = undefined;
 // sliding pieces attack masks
 var bishopMasks: [64]u64 = undefined;
 var rookMasks: [64]u64 = undefined;
+// lookup tables for pin/check masks
+pub var betweenSqr: [64][64]u64 = undefined;
 
 pub inline fn getPawnAttacks(sqr: u6, color: u1) u64 {
     return pawnAttacks[sqr][color];
@@ -339,10 +341,30 @@ fn initSliderAttacks(piece: u1) void {
     }
 }
 
+inline fn initLookupTables() void {
+    var sqrs: u64 = undefined;
+    for (0..64) |sqr1_| {
+        const sqr1 = @as(u6, @intCast(sqr1_));
+        for (0..64) |sqr2_| {
+            const sqr2 = @as(u6, @intCast(sqr2_));
+            sqrs = (@as(u64, 1) << @intCast(sqr1)) | (@as(u64, 1) << @intCast(sqr2));
+            if ((getDiag[sqr1] == getDiag[sqr2]) or
+                getRank[sqr1] + getFile[sqr1] == getRank[sqr2] + getFile[sqr2])
+                betweenSqr[sqr1][sqr2] =
+                    getBishopAttacks(sqr1, sqrs) & getBishopAttacks(sqr2, sqrs)
+            else if ((getFile[sqr1] == getFile[sqr2]) or
+                getRank[sqr1] == getRank[sqr2])
+                betweenSqr[sqr1][sqr2] =
+                    getRookAttacks(sqr1, sqrs) & getRookAttacks(sqr2, sqrs);
+        }
+    }
+}
+
 pub fn initAll() void {
     initLeaperAttacks();
     initSliderAttacks(0);
     initSliderAttacks(1);
+    initLookupTables();
 }
 
 const bishopRelevantBits = [64]usize{
@@ -407,3 +429,10 @@ const notAFile: u64 = 0xfefefefefefefefe;
 const notHFile: u64 = 0x7f7f7f7f7f7f7f7f;
 const notABFile: u64 = 0xfcfcfcfcfcfcfcfc;
 const notGHFile: u64 = 0x3f3f3f3f3f3f3f3f;
+
+
+const getRank: [64]u6 = [64]u6{ 7, 7, 7, 7, 7, 7, 7, 7, 6, 6, 6, 6, 6, 6, 6, 6, 5, 5, 5, 5, 5, 5, 5, 5, 4, 4, 4, 4, 4, 4, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0 };
+
+const getFile: [64]u6 = [64]u6{ 0, 1, 2, 3, 4, 5, 6, 7, 0, 1, 2, 3, 4, 5, 6, 7, 0, 1, 2, 3, 4, 5, 6, 7, 0, 1, 2, 3, 4, 5, 6, 7, 0, 1, 2, 3, 4, 5, 6, 7, 0, 1, 2, 3, 4, 5, 6, 7, 0, 1, 2, 3, 4, 5, 6, 7, 0, 1, 2, 3, 4, 5, 6, 7 };
+
+const getDiag: [64]u6 = [64]u6{ 14, 13, 12, 11, 10, 9, 8, 7, 13, 12, 11, 10, 9, 8, 7, 6, 12, 11, 10, 9, 8, 7, 6, 5, 11, 10, 9, 8, 7, 6, 5, 4, 10, 9, 8, 7, 6, 5, 4, 3, 9, 8, 7, 6, 5, 4, 3, 2, 8, 7, 6, 5, 4, 3, 2, 1, 7, 6, 5, 4, 3, 2, 1, 0 };
