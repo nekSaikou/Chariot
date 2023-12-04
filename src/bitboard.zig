@@ -8,21 +8,23 @@ pub inline fn setBit(bitboard: *u64, square: u6) void {
 }
 
 pub inline fn popBit(bitboard: *u64, square: u6) void {
-    if (getBit(bitboard.*, square) == 1)
+    if (getBit(bitboard.*, square) != 0)
         bitboard.* ^= (@as(u64, 1) << square);
 }
 
-pub inline fn getBit(bitboard: u64, square: u6) u2 {
-    if (bitboard & (@as(u64, 1) << @intCast(square)) != 0)
-        return 1;
-    return 0;
+pub inline fn getBit(bitboard: u64, square: u6) u64 {
+    return bitboard & (@as(u64, 1) << @intCast(square));
 }
 
 pub fn printBitboard(bitboard: u64) void {
     for (0..8) |rank| {
         for (0..8) |file| {
             var square: usize = rank * 8 + file;
-            std.debug.print("{} ", .{getBit(bitboard, @intCast(square))});
+            const bit: u1 = switch (getBit(bitboard, @intCast(square))) {
+                0 => 0,
+                else => 1,
+            };
+            std.debug.print("{} ", .{bit});
         }
         std.debug.print("\n", .{});
     }
