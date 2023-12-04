@@ -10,7 +10,7 @@ const getBit = @import("bitboard.zig").getBit;
 const setBit = @import("bitboard.zig").setBit;
 const popBit = @import("bitboard.zig").popBit;
 
-pub inline fn genLegal(board: *Board, list: *MoveList) void {
+pub fn genLegal(board: *Board, list: *MoveList) void {
     genThreatMask(board, board.side, board.kingSqr(board.side));
     genKingMoves(board, list);
     // only generate king moves during double check
@@ -22,7 +22,7 @@ pub inline fn genLegal(board: *Board, list: *MoveList) void {
     genQueenMoves(board, list);
 }
 
-inline fn genQueenMoves(board: *Board, list: *MoveList) void {
+fn genQueenMoves(board: *Board, list: *MoveList) void {
     const side: u1 = board.side;
     const xside: u1 = board.side ^ 1;
     var bitboard: u64 = board.pieceBB(4, side);
@@ -49,7 +49,7 @@ inline fn genQueenMoves(board: *Board, list: *MoveList) void {
     }
 }
 
-inline fn genRookMoves(board: *Board, list: *MoveList) void {
+fn genRookMoves(board: *Board, list: *MoveList) void {
     const side: u1 = board.side;
     const xside: u1 = board.side ^ 1;
     var bitboard: u64 = board.pieceBB(3, side);
@@ -78,7 +78,7 @@ inline fn genRookMoves(board: *Board, list: *MoveList) void {
     }
 }
 
-inline fn genBishopMoves(board: *Board, list: *MoveList) void {
+fn genBishopMoves(board: *Board, list: *MoveList) void {
     const side: u1 = board.side;
     const xside: u1 = board.side ^ 1;
     var bitboard: u64 = board.pieceBB(2, side);
@@ -106,7 +106,8 @@ inline fn genBishopMoves(board: *Board, list: *MoveList) void {
         }
     }
 }
-inline fn genKnightMoves(board: *Board, list: *MoveList) void {
+
+fn genKnightMoves(board: *Board, list: *MoveList) void {
     const side: u1 = board.side;
     const xside: u1 = board.side ^ 1;
     var bitboard: u64 = board.pieceBB(1, side);
@@ -133,7 +134,7 @@ inline fn genKnightMoves(board: *Board, list: *MoveList) void {
     }
 }
 
-inline fn genKingMoves(board: *Board, list: *MoveList) void {
+fn genKingMoves(board: *Board, list: *MoveList) void {
     const side: u1 = board.side;
     const xside: u1 = board.side ^ 1;
     // there's only one king so loop is unneeded
@@ -230,7 +231,7 @@ inline fn genKingMoves(board: *Board, list: *MoveList) void {
     }
 }
 
-inline fn genPawnMoves(board: *Board, list: *MoveList) void {
+fn genPawnMoves(board: *Board, list: *MoveList) void {
     const side: u1 = board.side;
     const xside: u1 = board.side ^ 1;
     var bitboard: u64 = board.pieceBB(0, board.side);
@@ -366,13 +367,13 @@ inline fn genPawnMoves(board: *Board, list: *MoveList) void {
     }
 }
 
-pub inline fn genThreatMask(board: *Board, color: u1, sqr: u6) void {
+inline fn genThreatMask(board: *Board, color: u1, sqr: u6) void {
     const new_mask = genCheckMask(board, color, sqr);
     board.checkMask = if (new_mask != 0) new_mask else NOCHECK;
     genPinMask(board, color, sqr);
 }
 
-inline fn genCheckMask(board: *Board, color: u1, sqr: u6) u64 {
+fn genCheckMask(board: *Board, color: u1, sqr: u6) u64 {
     var occupancy: u64 = board.allPieces();
     var checks: u64 = 0;
     var pawn_mask: u64 = board.pieceBB(0, color ^ 1) & atk.getPawnAttacks(sqr, color);
@@ -408,7 +409,7 @@ inline fn genCheckMask(board: *Board, color: u1, sqr: u6) u64 {
     return checks;
 }
 
-inline fn genPinMask(board: *Board, color: u1, sqr: u6) void {
+fn genPinMask(board: *Board, color: u1, sqr: u6) void {
     var opp_bb: u64 = board.occupancy[color ^ 1];
     var diag_mask: u64 = atk.getBishopAttacks(sqr, opp_bb) &
         (board.pieceBB(2, color ^ 1) |

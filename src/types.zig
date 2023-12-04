@@ -26,11 +26,11 @@ pub const Board = struct {
         return self.pieces[piece] & self.occupancy[color];
     }
 
-    pub fn allPieces(self: @This()) u64 {
+    pub inline fn allPieces(self: @This()) u64 {
         return self.occupancy[0] | self.occupancy[1];
     }
 
-    pub fn kingSqr(self: @This(), color: u1) u6 {
+    pub inline fn kingSqr(self: @This(), color: u1) u6 {
         return @intCast(@ctz(self.pieces[5] & self.occupancy[color]));
     }
 
