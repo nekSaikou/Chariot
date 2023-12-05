@@ -5,9 +5,11 @@ const Move = @import("types.zig").Move;
 const MoveList = @import("types.zig").MoveList;
 const perft = @import("perft.zig").perftTest;
 const makeMove = @import("makemove.zig").makeMove;
+const initRandomKeys = @import("zobrist.zig").initRandomKeys;
 
 pub fn main() !void {
     atk.initAll();
+    initRandomKeys();
     var board: Board = .{};
     try board.parseFEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 ");
 

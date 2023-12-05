@@ -3,6 +3,7 @@ const atk = @import("attacks.zig");
 const getBit = @import("bitboard.zig").getBit;
 const setBit = @import("bitboard.zig").setBit;
 const popBit = @import("bitboard.zig").popBit;
+const zobrist = @import("zobrist.zig");
 
 pub const MAX_PLY: usize = 200;
 
@@ -14,6 +15,9 @@ pub const Board = struct {
     ply: usize = 0,
     hmc: usize = 0, // for fifty moves rule
     checks: usize = 0,
+
+    // position key
+    posKey: u64 = 0,
 
     // bitboards
     pieces: [6]u64 = [_]u64{0} ** 6,
@@ -54,6 +58,13 @@ pub const Board = struct {
             if (getBit(self.pieces[pc], sqr) != 0) return @intCast(pc);
         }
         return 6;
+    }
+
+    pub fn getOccupancy(self: @This(), sqr: u6) ?u1 {
+        for (0..2) |color| {
+            if (getBit(self.occupancy[color], sqr) != 0) return @intCast(color);
+        }
+        return null;
     }
 
     pub fn parseFEN(self: *@This(), str: []const u8) !void {
@@ -131,6 +142,8 @@ pub const Board = struct {
             const f = enpassant[0] - 'a';
             self.epSqr = @intCast(r * 8 + f);
         } else self.epSqr = null;
+
+        self.posKey = zobrist.genPosKey(self.*);
     }
 };
 

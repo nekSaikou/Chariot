@@ -167,6 +167,10 @@ pub fn searchPos(board: *Board, depth: u8) !void {
             try stdout.print(" {s}", .{uci.uciMove(pvTable[0][count])});
         }
         try stdout.print(" \n", .{});
+
+        // narrow down the next search window
+        alpha = score - 40;
+        beta = score + 40;
     }
     try stdout.print("bestmove {s}\n", .{uci.uciMove(pvTable[0][0])});
 }

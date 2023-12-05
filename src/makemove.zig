@@ -10,6 +10,7 @@ const getBit = @import("bitboard.zig").getBit;
 const setBit = @import("bitboard.zig").setBit;
 const popBit = @import("bitboard.zig").popBit;
 const genLegal = @import("movegen.zig").genLegal;
+const zobrist = @import("zobrist.zig");
 
 pub fn makeMove(board: *Board, move: Move) void {
     const side: u1 = board.side;
@@ -39,6 +40,8 @@ pub fn makeMove(board: *Board, move: Move) void {
 
     // update game state
     board.ply += 1;
+    // xor out the epSqr
+    if (board.epSqr != null) hashKey(board, zobrist.EnPassantKeys[board.epSqr.?]);
     board.epSqr = null;
     // move the piece
     clearPiece(board, src, piece, side);
@@ -46,6 +49,7 @@ pub fn makeMove(board: *Board, move: Move) void {
     // add en passant square
     if (move.isDoublePush()) {
         board.epSqr = epCaptureSqr;
+        hashKey(board, zobrist.EnPassantKeys[board.epSqr.?]);
     }
 
     if (move.isCastle()) switch (dest) {
@@ -58,6 +62,8 @@ pub fn makeMove(board: *Board, move: Move) void {
     updateCastlingRights(board, src, dest);
 
     board.side ^= 1;
+    // xor the new side key
+    hashKey(board, zobrist.SideKey);
 }
 
 inline fn movePiece(board: *Board, src: u6, dest: u6, piece: u3, color: u1) void {
@@ -66,18 +72,30 @@ inline fn movePiece(board: *Board, src: u6, dest: u6, piece: u3, color: u1) void
 }
 
 inline fn addPiece(board: *Board, sqr: u6, piece: u3, color: u1) void {
+    hashKey(board, zobrist.PieceKeys[piece][sqr]);
+    hashKey(board, zobrist.OccupancyKeys[color][sqr]);
     setBit(&board.pieces[piece], sqr);
     setBit(&board.occupancy[color], sqr);
 }
 
 inline fn clearPiece(board: *Board, sqr: u6, piece: u3, color: u1) void {
+    hashKey(board, zobrist.PieceKeys[piece][sqr]);
+    hashKey(board, zobrist.OccupancyKeys[color][sqr]);
     popBit(&board.pieces[piece], sqr);
     popBit(&board.occupancy[color], sqr);
 }
 
 inline fn updateCastlingRights(board: *Board, src: u6, dest: u6) void {
+    hashKey(board, zobrist.CastleKeys[board.castle]);
+
     board.castle &= castlingUpdate[src];
     board.castle &= castlingUpdate[dest];
+
+    hashKey(board, zobrist.CastleKeys[board.castle]);
+}
+
+inline fn hashKey(board: *Board, key: u64) void {
+    board.posKey ^= key;
 }
 
 const castlingUpdate: [64]u4 = .{
