@@ -66,7 +66,6 @@ fn negamax(board: *Board, alpha_: i32, beta_: i32, depth_: u8) i32 {
     for (0..list.count) |count| {
         const move = list.moves[count].move;
         const board_copy = board.*;
-        board.ply += 1;
         // make move
         makeMove(board, move);
 
@@ -90,9 +89,6 @@ fn negamax(board: *Board, alpha_: i32, beta_: i32, depth_: u8) i32 {
             // update alpha when better move is found
             alpha = score;
             found_pv = true;
-
-            std.debug.print("ply: {d}\n", .{board.ply});
-            std.debug.print("ply: {d}\n", .{pvLength[board.ply + 1]});
 
             // collect PV
             pvTable[board.ply][board.ply] = list.moves[count].move;
