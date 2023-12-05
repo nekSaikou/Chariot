@@ -38,8 +38,8 @@ fn negamax(board: *Board, alpha_: i32, beta_: i32, depth_: u8) i32 {
     }
     if (alpha >= beta) return alpha;
 
-    // return evaluation at root
-    if (depth == 0) return evaluate(board.*);
+    // use quiescense search at root node
+    if (depth == 0) return quiescense(board, alpha, beta);
 
     // exceed ply limit
     if (board.ply >= MAX_PLY) return evaluate(board.*);
@@ -101,6 +101,44 @@ fn negamax(board: *Board, alpha_: i32, beta_: i32, depth_: u8) i32 {
     return alpha;
 }
 
+fn quiescense(board: *Board, alpha_: i32, beta_: i32) i32 {
+    @setEvalBranchQuota(5000000);
+    var alpha: i32 = alpha_;
+    var beta: i32 = beta_;
+    var evaluation = evaluate(board.*);
+    // return immediately if node fail high
+    if (evaluation >= beta) return beta;
+    if (evaluation > alpha) {
+        // better move is found
+        alpha = evaluation;
+    }
+
+    nodes += 1;
+
+    var list: MoveList = .{};
+    genLegal(board, &list);
+
+    for (0..list.count) |count| {
+        const board_copy = board.*;
+        const move = list.moves[count].move;
+
+        // TODO: create noisy movegen instead
+        if (move.isQuiet()) continue;
+        makeMove(board, move);
+
+        var score: i32 = -quiescense(board, -beta, -alpha);
+
+        board.* = board_copy;
+
+        if (score >= beta) return beta;
+        if (score > alpha) {
+            alpha = score;
+        }
+    }
+
+    return alpha;
+}
+
 inline fn enablePvScoring(board: *Board, moveList: *MoveList) void {
     board.followPV = false;
     for (0..moveList.count) |count| {
@@ -130,8 +168,7 @@ pub fn searchPos(board: *Board, depth: u8) !void {
         }
         try stdout.print(" \n", .{});
     }
-    std.debug.print("nodes: {}\n", .{nodes});
-    try stdout.print("{s}\n", .{uci.uciMove(pvTable[0][0])});
+    try stdout.print("bestmove {s}\n", .{uci.uciMove(pvTable[0][0])});
 }
 
 var pvTable: [MAX_PLY][MAX_PLY]Move = undefined;

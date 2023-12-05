@@ -384,7 +384,7 @@ fn genPawnMoves(board: *Board, list: *MoveList) void {
     }
 }
 
-inline fn genThreatMask(board: *Board, color: u1, sqr: u6) void {
+pub inline fn genThreatMask(board: *Board, color: u1, sqr: u6) void {
     const new_mask = genCheckMask(board, color, sqr);
     board.checkMask = if (new_mask != 0) new_mask else NOCHECK;
     genPinMask(board, color, sqr);
