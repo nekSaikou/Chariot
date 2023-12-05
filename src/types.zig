@@ -22,6 +22,11 @@ pub const Board = struct {
     pinDiag: u64 = 0,
     pinOrth: u64 = 0,
 
+    // search flags
+    scorePV: bool = false,
+    followPV: bool = false,
+    nmp: bool = true,
+
     pub inline fn pieceBB(self: @This(), piece: u3, color: u1) u64 {
         return self.pieces[piece] & self.occupancy[color];
     }

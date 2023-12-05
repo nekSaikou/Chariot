@@ -19,7 +19,13 @@ pub inline fn uciMove(move: Move) []const u8 {
 
     if (move.flag & 3 & 8 == 0) return output[0..4];
 
-    const promo: []const u8 = "n";
+    const promo: []const u8 = switch (move.getPromoType()) {
+        1 => "n",
+        2 => "b",
+        3 => "r",
+        4 => "q",
+        else => unreachable,
+    };
     std.mem.copy(u8, output[4..], promo);
     return output[0..5];
 }
