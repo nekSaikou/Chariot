@@ -3,6 +3,7 @@ const stdout = std.io.getStdOut().writer();
 const atk = @import("attacks.zig");
 const Board = @import("types.zig").Board;
 const Move = @import("types.zig").Move;
+const ScoredMove = @import("types.zig").ScoredMove;
 const MoveList = @import("types.zig").MoveList;
 const MoveType = @import("types.zig").MoveType;
 const getBit = @import("bitboard.zig").getBit;
@@ -52,6 +53,7 @@ fn negamax(board: *Board, alpha_: i32, beta_: i32, depth_: u8) i32 {
 
     var list: MoveList = .{};
     genLegal(board, &list);
+    sortMoves(board, &list);
 
     // no legal move on the board
     if (list.count == 0) {
@@ -117,6 +119,7 @@ fn quiescense(board: *Board, alpha_: i32, beta_: i32) i32 {
 
     var list: MoveList = .{};
     genLegal(board, &list);
+    sortMoves(board, &list);
 
     for (0..list.count) |count| {
         const board_copy = board.*;
@@ -139,7 +142,35 @@ fn quiescense(board: *Board, alpha_: i32, beta_: i32) i32 {
     return alpha;
 }
 
-inline fn enablePvScoring(board: *Board, moveList: *MoveList) void {
+// TODO: enhance sort algorithm
+fn sortMoves(board: *Board, list: *MoveList) void {
+    for (0..list.count) |count| {
+        scoreMove(board, &list.moves[count]);
+    }
+    for (0..list.count) |current| {
+        for (current..list.count + 1) |next| {
+            const current_move = list.moves[current];
+            const next_move = list.moves[next];
+            // do in place sorting
+            if (current_move.score < next_move.score) {
+                list.moves[current] = next_move;
+                list.moves[next] = current_move;
+            }
+        }
+    }
+}
+
+inline fn scoreMove(board: *Board, move: *ScoredMove) void {
+    if (board.scorePV) {
+        if (@as(u20, @bitCast(pvTable[0][board.ply])) == @as(u20, @bitCast(move.move))) {
+            board.scorePV = false;
+            move.score = 20000;
+            return;
+        }
+    }
+}
+
+fn enablePvScoring(board: *Board, moveList: *MoveList) void {
     board.followPV = false;
     for (0..moveList.count) |count| {
         if (@as(u20, @bitCast(pvTable[0][board.ply])) == @as(u20, @bitCast(moveList.moves[count].move))) {
@@ -177,3 +208,6 @@ pub fn searchPos(board: *Board, depth: u8) !void {
 
 var pvTable: [MAX_PLY][MAX_PLY]Move = undefined;
 var pvLength: [MAX_PLY]usize = [_]usize{0} ** MAX_PLY;
+
+var killer: [MAX_PLY][2]Move = undefined;
+var moveScoreHistory: [6][64]i32 = undefined;
