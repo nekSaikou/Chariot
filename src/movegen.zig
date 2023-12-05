@@ -30,12 +30,28 @@ fn genQueenMoves(board: *Board, list: *MoveList) void {
         const src: u6 = @intCast(@ctz(bitboard));
         popBit(&bitboard, src);
 
-        var attacks = atk.getQueenAttacks(src, board.allPieces()) & ~board.occupancy[side];
-        while (attacks != 0) {
-            const dest: u6 = @intCast(@ctz(attacks));
-            popBit(&attacks, dest);
-            // only generate move along the pinned line if it exists
+        var diagonalAttacks = atk.getBishopAttacks(src, board.allPieces()) & ~board.occupancy[side];
+        while (diagonalAttacks != 0) {
+            const dest: u6 = @intCast(@ctz(diagonalAttacks));
+            popBit(&diagonalAttacks, dest);
+            // only generate move along the pinned diagonal if it exists
+            if (getBit(board.pinOrth, src) != 0) continue;
             if (getBit(board.pinDiag, src) != 0 and getBit(board.pinDiag, dest) == 0) continue;
+            if (getBit(board.checkMask, dest) != 0)
+                addMove(Move{
+                    .src = src,
+                    .dest = dest,
+                    .flag = if (getBit(board.occupancy[xside], dest) != 0) 4 else 0,
+                    .piece = 4,
+                    .color = side,
+                }, list);
+        }
+        var orthogonalAttacks = atk.getRookAttacks(src, board.allPieces()) & ~board.occupancy[side];
+        while (orthogonalAttacks != 0) {
+            const dest: u6 = @intCast(@ctz(orthogonalAttacks));
+            popBit(&orthogonalAttacks, dest);
+            // only generate move along the pinned line if it exists
+            if (getBit(board.pinDiag, src) != 0) continue;
             if (getBit(board.pinOrth, src) != 0 and getBit(board.pinOrth, dest) == 0) continue;
             if (getBit(board.checkMask, dest) != 0)
                 addMove(Move{
@@ -334,6 +350,7 @@ fn genPawnMoves(board: *Board, list: *MoveList) void {
             }
         }
         // can't push pawns while pinned diagonally
+        // so this check is required
         if (getBit(board.pinDiag, src) == 0) {
             if (doublePush != null and
                 getBit(board.checkMask, doublePush.?) != 0)

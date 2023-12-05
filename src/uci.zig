@@ -17,7 +17,7 @@ pub inline fn uciMove(move: Move) []const u8 {
     std.mem.copy(u8, output[0..], src);
     std.mem.copy(u8, output[2..], dest);
 
-    if (move.promo == 0) return output[0..4];
+    if (move.flag & 3 & 8 == 0) return output[0..4];
 
     const promo: []const u8 = "n";
     std.mem.copy(u8, output[4..], promo);

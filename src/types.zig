@@ -44,6 +44,13 @@ pub const Board = struct {
             (atk.getKingAttacks(sqr) & (pieceBB(self, 5, color)));
     }
 
+    pub inline fn targetPiece(self: @This(), sqr: u6) u3 {
+        for (0..6) |pc| {
+            if (getBit(self.pieces[pc], sqr) != 0) return @intCast(pc);
+        }
+        return 6;
+    }
+
     pub fn parseFEN(self: *@This(), str: []const u8) !void {
         self.* = Board{};
 
@@ -146,6 +153,34 @@ pub const Move = packed struct(u20) {
 
     pub inline fn getMoveKey(self: @This()) u16 {
         return @truncate(@as(u20, @bitCast(self)));
+    }
+
+    pub inline fn isDoublePush(self: @This()) bool {
+        return self.flag == 1;
+    }
+
+    pub inline fn isCastle(self: @This()) bool {
+        return self.flag == 2 or self.flag == 3;
+    }
+
+    pub inline fn isCapture(self: @This()) bool {
+        return self.flag & 4 != 0;
+    }
+
+    pub inline fn isEnPassant(self: @This()) bool {
+        return self.flag == 5;
+    }
+
+    pub inline fn isPromo(self: @This()) bool {
+        return self.flag & 8 != 0;
+    }
+
+    pub inline fn getPromoType(self: @This()) u3 {
+        return @intCast((self.flag & 3) + 1);
+    }
+
+    pub inline fn isQuiet(self: @This()) bool {
+        return !isCapture(self) and !isPromo(self);
     }
 };
 
