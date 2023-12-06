@@ -243,6 +243,7 @@ pub fn searchPos(board: *Board, depth: u8) !void {
     @memset(&pvLength, 0);
     @memset(&pvTable, undefined);
     tt.table.prefetch(board.*);
+    board.ply = 0;
     var score: i16 = 0;
     var alpha: i16 = -INFINITY;
     var beta: i16 = INFINITY;
@@ -269,8 +270,8 @@ pub fn searchPos(board: *Board, depth: u8) !void {
     try stdout.print("bestmove {s}\n", .{uci.uciMove(pvTable[0][0])});
 }
 
-pub var pvTable: [MAX_PLY][MAX_PLY]Move = undefined;
-pub var pvLength: [MAX_PLY]usize = [_]usize{0} ** MAX_PLY;
+var pvTable: [MAX_PLY][MAX_PLY]Move = undefined;
+var pvLength: [MAX_PLY]usize = [_]usize{0} ** MAX_PLY;
 
 var killer: [MAX_PLY][2]Move = undefined;
 var history = std.mem.zeroes([64][64]i16);
