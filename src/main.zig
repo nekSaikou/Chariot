@@ -7,6 +7,7 @@ const perft = @import("perft.zig").perftTest;
 const makeMove = @import("makemove.zig").makeMove;
 const initRandomKeys = @import("zobrist.zig").initRandomKeys;
 const initTT = @import("ttable.zig").initTT;
+const search = @import("search.zig").searchPos;
 
 pub fn main() !void {
     atk.initAll();
@@ -15,5 +16,6 @@ pub fn main() !void {
 
     var board: Board = .{};
     try board.parseFEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 ");
-    try perft(&board, 7);
+
+    try search(&board, 9);
 }

@@ -6,6 +6,8 @@ const zobrist = @import("zobrist.zig");
 const MB: usize = 1048576;
 const KB: usize = 1024;
 
+pub const Bound = enum(u2) { none, alpha, beta, exact };
+
 pub var table: TTable = .{};
 
 pub const HashEntry = packed struct(u128) {
@@ -13,14 +15,9 @@ pub const HashEntry = packed struct(u128) {
     score: i16 = 0, // score from search
     eval: i16 = 0, // static eval
     hashKey: u64 = 0,
-    bound: u2 = 0, // what caused the cutoff
+    bound: Bound = Bound.none, // what caused the cutoff
     depth: u8 = 0,
     age: u6 = 0,
-    // bound:
-    // 0 none
-    // 1 alpha
-    // 2 beta
-    // 3 exact pv
 };
 
 const HashTable = std.ArrayList(HashEntry);
@@ -40,24 +37,23 @@ pub const TTable = struct {
 
     pub inline fn storeHashEntry(
         self: *@This(),
-        board: Board,
-        move_: Move,
+        pos: u64,
+        move: u16,
         score: i16,
         eval: i16,
-        bound: u2,
         depth: u8,
+        bound: Bound,
     ) void {
-        const move = move_.getMoveKey();
-        const tt_index = self.index(board.posKey);
+        const tt_index = self.index(pos);
         var prevEntry: *HashEntry = &self.data.items[tt_index];
 
         // replace less valuable entry
-        if (bound == 3 or // new entry is exact PV
+        if (bound == Bound.exact or // new entry is exact PV
             prevEntry.age != self.age or // previous entry is older
-            prevEntry.hashKey != board.posKey or // from different positions
-            depth + 4 + bound > prevEntry.depth // previous entry has lower depth
+            prevEntry.hashKey != pos or // from different positions
+            depth + 4 + @intFromEnum(bound) > prevEntry.depth // previous entry has lower depth
         ) {
-            prevEntry.hashKey = board.posKey;
+            prevEntry.hashKey = pos;
             prevEntry.bestMove = move;
             prevEntry.score = score;
             prevEntry.eval = eval;
