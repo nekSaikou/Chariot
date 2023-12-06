@@ -31,7 +31,7 @@ pub const TTable = struct {
 
     pub inline fn clear(self: *@This()) void {
         for (self.data.items) |*ptr| {
-            ptr.* = 0;
+            ptr.* = HashEntry{};
         }
     }
 

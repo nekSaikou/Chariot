@@ -39,7 +39,7 @@ fn negamax(board: *Board, alpha_: i16, beta_: i16, depth_: u8) i16 {
         score = ttEntry.score;
         best_move_key = ttEntry.bestMove;
         // make sure the node is not PV and the TT entry is not worse
-        if (alpha - beta == -1 and depth <= ttEntry.depth)
+        if (alpha -% beta == -1 and depth <= ttEntry.depth)
             switch (ttEntry.bound) {
                 Bound.none => {},
                 Bound.alpha => if (score <= alpha) return score,
@@ -48,7 +48,7 @@ fn negamax(board: *Board, alpha_: i16, beta_: i16, depth_: u8) i16 {
             };
     }
 
-    // set to true if PV exist
+    // set to true at first alpha raise
     var found_pv: bool = false;
 
     pvLength[board.ply] = board.ply;
@@ -95,7 +95,7 @@ fn negamax(board: *Board, alpha_: i16, beta_: i16, depth_: u8) i16 {
         makeMove(board, move);
 
         // run search
-        if (!found_pv or board.ply == 0) {
+        if (!found_pv) {
             score = -negamax(board, -beta, -alpha, depth - 1);
         } else {
             score = -negamax(board, -alpha - 1, -alpha, depth - 1);
@@ -138,7 +138,6 @@ fn negamax(board: *Board, alpha_: i16, beta_: i16, depth_: u8) i16 {
     }
     const bound = if (found_pv) Bound.exact else Bound.alpha;
     tt.table.storeHashEntry(board.posKey, best_move_key, score, NO_SCORE, depth, bound);
-    tt.table.ageUp();
     return alpha;
 }
 
@@ -243,10 +242,13 @@ fn enablePvScoring(board: *Board, moveList: *MoveList) void {
 pub fn searchPos(board: *Board, depth: u8) !void {
     @memset(&pvLength, 0);
     @memset(&pvTable, undefined);
+    tt.table.prefetch(board.*);
     var score: i16 = 0;
     var alpha: i16 = -INFINITY;
     var beta: i16 = INFINITY;
     nodes = 0;
+
+    tt.table.ageUp();
 
     for (1..(depth + 1)) |currentDepth| {
         board.followPV = true;
@@ -263,11 +265,12 @@ pub fn searchPos(board: *Board, depth: u8) !void {
         alpha = score - 40;
         beta = score + 40;
     }
+    std.debug.print("bestmove {s}\n", .{uci.uciMove(pvTable[0][0])});
     try stdout.print("bestmove {s}\n", .{uci.uciMove(pvTable[0][0])});
 }
 
-var pvTable: [MAX_PLY][MAX_PLY]Move = undefined;
-var pvLength: [MAX_PLY]usize = [_]usize{0} ** MAX_PLY;
+pub var pvTable: [MAX_PLY][MAX_PLY]Move = undefined;
+pub var pvLength: [MAX_PLY]usize = [_]usize{0} ** MAX_PLY;
 
 var killer: [MAX_PLY][2]Move = undefined;
 var history = std.mem.zeroes([64][64]i16);
