@@ -13,6 +13,7 @@ const genLegal = @import("movegen.zig").genLegal;
 const makeMove = @import("makemove.zig").makeMove;
 const evaluate = @import("eval.zig").evaluate;
 const uci = @import("uci.zig");
+const tt = @import("ttable.zig");
 
 const MAX_PLY: usize = 200;
 const INFINITY: i16 = 32000;
@@ -26,6 +27,11 @@ fn negamax(board: *Board, alpha_: i16, beta_: i16, depth_: u8) i16 {
     var alpha = alpha_;
     var beta = beta_;
     var depth = depth_;
+
+    // initalize bound when adding to TT 
+    // nodes are assumed to fail low by default
+    var bound: u2 = 1;
+    _ = bound;
 
     // set to true if PV exist
     var found_pv: bool = false;

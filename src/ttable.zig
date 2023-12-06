@@ -52,8 +52,7 @@ pub const TTable = struct {
         var prevEntry: *HashEntry = &self.data.items[tt_index];
 
         // replace less valuable entry
-        if (prevEntry.* == 0 or // previous entry is empty
-            bound == 3 or // new entry is exact PV
+        if (bound == 3 or // new entry is exact PV
             prevEntry.age != self.age or // previous entry is older
             prevEntry.hashKey != board.posKey or // from different positions
             depth + 4 + bound > prevEntry.depth // previous entry has lower depth
@@ -75,8 +74,12 @@ pub const TTable = struct {
         return entry.hashKey == board.posKey;
     }
 
+    pub inline fn ageUp(self: *@This()) void {
+        self.age +%= 1;
+    }
+
     pub inline fn prefetch(self: *@This(), board: Board) void {
-        @prefetch(self.data.items[self.index(board.posKey)], .{
+        @prefetch(&self.data.items[self.index(board.posKey)], .{
             .rw = .read,
             .locality = 2,
             .cache = .data,
@@ -87,3 +90,10 @@ pub const TTable = struct {
         return @as(u64, @intCast(@as(u128, @intCast(hash)) * @as(u128, @intCast(self.size)) >> 64));
     }
 };
+
+pub fn initTT(size: usize) void {
+    table.size = size * MB / @sizeOf(HashEntry);
+
+    table.data.ensureTotalCapacity(table.size) catch {};
+    table.data.expandToCapacity();
+}
