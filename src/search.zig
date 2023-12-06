@@ -40,7 +40,12 @@ fn negamax(board: *Board, alpha_: i16, beta_: i16, depth_: u8) i16 {
         best_move_key = ttEntry.bestMove;
         // make sure the node is not PV and the TT entry is not worse
         if (alpha - beta == -1 and depth <= ttEntry.depth)
-            return score;
+            switch (ttEntry.bound) {
+                Bound.none => {},
+                Bound.alpha => if (score <= alpha) return score,
+                Bound.beta => if (score >= beta) return score,
+                Bound.exact => return score,
+            };
     }
 
     // set to true if PV exist
@@ -90,7 +95,7 @@ fn negamax(board: *Board, alpha_: i16, beta_: i16, depth_: u8) i16 {
         makeMove(board, move);
 
         // run search
-        if (!found_pv) {
+        if (!found_pv or board.ply == 0) {
             score = -negamax(board, -beta, -alpha, depth - 1);
         } else {
             score = -negamax(board, -alpha - 1, -alpha, depth - 1);
@@ -120,9 +125,6 @@ fn negamax(board: *Board, alpha_: i16, beta_: i16, depth_: u8) i16 {
             // update best move key to be stored in TT at the end
             best_move_key = move.getMoveKey();
 
-            // store as exact PV
-            tt.table.storeHashEntry(board.posKey, move.getMoveKey(), score, NO_SCORE, depth, Bound.exact);
-
             // better move is found, update alpha
             alpha = score;
             found_pv = true;
@@ -134,7 +136,8 @@ fn negamax(board: *Board, alpha_: i16, beta_: i16, depth_: u8) i16 {
             pvLength[board.ply] = pvLength[board.ply + 1];
         }
     }
-    tt.table.storeHashEntry(board.posKey, best_move_key, score, NO_SCORE, depth, Bound.alpha);
+    const bound = if (found_pv) Bound.exact else Bound.alpha;
+    tt.table.storeHashEntry(board.posKey, best_move_key, score, NO_SCORE, depth, bound);
     tt.table.ageUp();
     return alpha;
 }

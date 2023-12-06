@@ -17,5 +17,5 @@ pub fn main() !void {
     var board: Board = .{};
     try board.parseFEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 ");
 
-    try search(&board, 9);
+    try search(&board, 8);
 }
