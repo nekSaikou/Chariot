@@ -15,13 +15,13 @@ const evaluate = @import("eval.zig").evaluate;
 const uci = @import("uci.zig");
 
 const MAX_PLY: usize = 200;
-const INFINITY: i32 = 50000;
-const CHECKMATE: i32 = 49000;
-const R: i32 = 3; // reduction limit
+const INFINITY: i16 = 32000;
+const CHECKMATE: i16 = 30000;
+const R: i16 = 3; // reduction limit
 
 var nodes: usize = 0;
 
-fn negamax(board: *Board, alpha_: i32, beta_: i32, depth_: u8) i32 {
+fn negamax(board: *Board, alpha_: i16, beta_: i16, depth_: u8) i16 {
     @setEvalBranchQuota(5000000);
     var alpha = alpha_;
     var beta = beta_;
@@ -34,8 +34,8 @@ fn negamax(board: *Board, alpha_: i32, beta_: i32, depth_: u8) i32 {
 
     // prune mate distance
     if (board.ply != 0) {
-        alpha = @max(alpha, -CHECKMATE + @as(i32, @intCast(board.ply)));
-        beta = @min(beta, CHECKMATE + @as(i32, @intCast(board.ply)) - 1);
+        alpha = @max(alpha, -CHECKMATE + @as(i16, @intCast(board.ply)));
+        beta = @min(beta, CHECKMATE + @as(i16, @intCast(board.ply)) - 1);
     }
     if (alpha >= beta) return alpha;
 
@@ -58,7 +58,7 @@ fn negamax(board: *Board, alpha_: i32, beta_: i32, depth_: u8) i32 {
     // no legal move on the board
     if (list.count == 0) {
         // checkmate
-        if (attacks_on_king != 0) return -CHECKMATE + @as(i32, @intCast(board.ply));
+        if (attacks_on_king != 0) return -CHECKMATE + @as(i16, @intCast(board.ply));
         // stalemate
         return 0;
     }
@@ -72,7 +72,7 @@ fn negamax(board: *Board, alpha_: i32, beta_: i32, depth_: u8) i32 {
         makeMove(board, move);
 
         // run search
-        var score: i32 = undefined;
+        var score: i16 = undefined;
         if (!found_pv) {
             score = -negamax(board, -beta, -alpha, depth - 1);
         } else {
@@ -85,9 +85,17 @@ fn negamax(board: *Board, alpha_: i32, beta_: i32, depth_: u8) i32 {
 
         // move fail high
         if (score >= beta) {
+            if (move.isQuiet()) {
+                killer[board.ply][1] = killer[board.ply][0];
+                killer[board.ply][0] = move;
+            }
             return beta;
         }
         if (score > alpha) {
+            // store history move
+            if (move.isQuiet()) {
+                history[move.src][move.dest] += @as(i16, depth) * @as(i16, depth);
+            }
             // update alpha when better move is found
             alpha = score;
             found_pv = true;
@@ -103,10 +111,10 @@ fn negamax(board: *Board, alpha_: i32, beta_: i32, depth_: u8) i32 {
     return alpha;
 }
 
-fn quiescense(board: *Board, alpha_: i32, beta_: i32) i32 {
+fn quiescense(board: *Board, alpha_: i16, beta_: i16) i16 {
     @setEvalBranchQuota(5000000);
-    var alpha: i32 = alpha_;
-    var beta: i32 = beta_;
+    var alpha: i16 = alpha_;
+    var beta: i16 = beta_;
     var evaluation = evaluate(board.*);
     // return immediately if node fail high
     if (evaluation >= beta) return beta;
@@ -129,7 +137,7 @@ fn quiescense(board: *Board, alpha_: i32, beta_: i32) i32 {
         if (move.isQuiet()) continue;
         makeMove(board, move);
 
-        var score: i32 = -quiescense(board, -beta, -alpha);
+        var score: i16 = -quiescense(board, -beta, -alpha);
 
         board.* = board_copy;
 
@@ -160,13 +168,34 @@ fn sortMoves(board: *Board, list: *MoveList) void {
     }
 }
 
-inline fn scoreMove(board: *Board, move: *ScoredMove) void {
+fn scoreMove(board: *Board, smove: *ScoredMove) void {
     if (board.scorePV) {
-        if (@as(u20, @bitCast(pvTable[0][board.ply])) == @as(u20, @bitCast(move.move))) {
+        if (@as(u20, @bitCast(pvTable[0][board.ply])) == @as(u20, @bitCast(smove.move))) {
             board.scorePV = false;
-            move.score = 20000;
+            smove.score = 15000;
             return;
         }
+    }
+
+    if (smove.move.isCapture()) {
+        for (0..6) |victim| {
+            if (getBit(board.occupancy[board.side ^ 1] & board.pieces[victim], smove.move.dest) != 0) {
+                smove.score = MVV_LVA[smove.move.piece][victim];
+                return;
+            }
+        }
+    } else {
+        if (@as(u20, @bitCast(killer[board.ply][0])) == @as(u20, @bitCast(smove.move))) {
+            smove.score = 6000;
+            return;
+        }
+        if (@as(u20, @bitCast(killer[board.ply][1])) == @as(u20, @bitCast(smove.move))) {
+            smove.score = 4000;
+            return;
+        }
+        // return history score
+        smove.score = history[smove.move.src][smove.move.dest];
+        return;
     }
 }
 
@@ -183,9 +212,9 @@ fn enablePvScoring(board: *Board, moveList: *MoveList) void {
 pub fn searchPos(board: *Board, depth: u8) !void {
     @memset(&pvLength, 0);
     @memset(&pvTable, undefined);
-    var score: i32 = 0;
-    var alpha: i32 = -INFINITY;
-    var beta: i32 = INFINITY;
+    var score: i16 = 0;
+    var alpha: i16 = -INFINITY;
+    var beta: i16 = INFINITY;
     nodes = 0;
 
     for (1..(depth + 1)) |currentDepth| {
@@ -210,4 +239,13 @@ var pvTable: [MAX_PLY][MAX_PLY]Move = undefined;
 var pvLength: [MAX_PLY]usize = [_]usize{0} ** MAX_PLY;
 
 var killer: [MAX_PLY][2]Move = undefined;
-var moveScoreHistory: [6][64]i32 = undefined;
+var history = std.mem.zeroes([64][64]i16);
+
+const MVV_LVA = [6][6]i16{
+    [6]i16{ 105, 205, 305, 405, 505, 605 },
+    [6]i16{ 104, 204, 304, 404, 504, 604 },
+    [6]i16{ 103, 203, 303, 403, 503, 603 },
+    [6]i16{ 102, 202, 302, 402, 502, 602 },
+    [6]i16{ 101, 201, 301, 401, 501, 601 },
+    [6]i16{ 100, 200, 300, 400, 500, 600 },
+};

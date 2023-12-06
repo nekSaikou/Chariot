@@ -8,8 +8,8 @@ const getBit = @import("bitboard.zig").getBit;
 const setBit = @import("bitboard.zig").setBit;
 const popBit = @import("bitboard.zig").popBit;
 
-pub inline fn evaluate(board: Board) i32 {
-    var score: i32 = 0;
+pub inline fn evaluate(board: Board) i16 {
+    var score: i16 = 0;
     var bitboard: u64 = undefined;
     var sqr: u6 = undefined;
 
@@ -56,9 +56,9 @@ pub inline fn evaluate(board: Board) i32 {
     }
 }
 
-const matValues = [6]i32{ 100, 345, 360, 525, 1000, 10000 };
+const matValues = [6]i16{ 100, 345, 360, 525, 1000, 10000 };
 
-const pawnRelValues = [64]i32{
+const pawnRelValues = [64]i16{
     // zig fmt: off
     90,  90,  90,  90,  90,  90,  90,  90,
     50,  50,  50,  40,  40,  50,  50,  50,
@@ -71,7 +71,7 @@ const pawnRelValues = [64]i32{
     // zig fmt: on
 };
 
-const knightRelValues = [64]i32{
+const knightRelValues = [64]i16{
     // zig fmt: off
    -30,   0,   0,   0,   0,   0,   0, -30,
     -5,   0,   0,  10,  10,   0,   0,  -5,
@@ -84,7 +84,7 @@ const knightRelValues = [64]i32{
     // zig fmt: on
 };
 
-const bishopRelValues = [64]i32{
+const bishopRelValues = [64]i16{
     // zig fmt: off
      0,   0,   0,   0,   0,   0,   0,   0,
      0,   0,   0,   0,   0,   0,   0,   0,
@@ -97,7 +97,7 @@ const bishopRelValues = [64]i32{
     // zig fmt: on
 };
 
-const rookRelValues = [64]i32{
+const rookRelValues = [64]i16{
     // zig fmt: off
     40,  40,  40,  40,  40,  40,  40,  40,
     50,  50,  50,  50,  50,  50,  50,  50,
@@ -110,7 +110,7 @@ const rookRelValues = [64]i32{
     // zig fmt: on
 };
 
-const queenRelValues = [64]i32{
+const queenRelValues = [64]i16{
     // zig fmt: off
    -20,   0,   0,   0,   0,   0,   0, -20,
      0,   0,   0,   0,   0,   0,   0,   0,
@@ -123,7 +123,7 @@ const queenRelValues = [64]i32{
     // zig fmt: on
 };
 
-const kingRelValues = [64]i32{
+const kingRelValues = [64]i16{
     // zig fmt: off
      0,   0,   0,   0,   0,   0,   0,   0,
      0,   0,   5,   5,   5,   5,   0,   0,

@@ -9,7 +9,7 @@ pub var CastleKeys = std.mem.zeroes([16]u64);
 pub var SideKey: u64 = 0;
 
 pub fn initRandomKeys() void {
-    var seed = Random.new(3);
+    var seed = Random.new(557755);
     for (0..64) |sqr| {
         for (0..6) |pc| {
             PieceKeys[pc][sqr] = seed.rand();
