@@ -13,6 +13,7 @@ const Square = @import("types.zig").Square;
 const genLegal = @import("movegen.zig").genLegal;
 const makeMove = @import("makemove.zig").makeMove;
 const searchPos = @import("search.zig").searchPos;
+const tt = @import("ttable.zig");
 
 pub fn mainLoop() !void {
     var buf: [2048]u8 = undefined;
@@ -23,7 +24,7 @@ pub fn mainLoop() !void {
 
         // zig fmt: off
         if (std.mem.startsWith(u8, input, "quit") or std.mem.startsWith(u8, input, "stop")) break
-        else if (std.mem.startsWith(u8, input, "ucinewgame")) try board.parseFEN(startpos)
+        else if (std.mem.startsWith(u8, input, "ucinewgame")) try parseUCINewGame(&board)
         else if (std.mem.startsWith(u8, input, "uci")) try uciInfo()
         else if (std.mem.startsWith(u8, input, "position")) try parsePosition(&board, input)
         else if (std.mem.startsWith(u8, input, "isready")) try stdout.print("readyok\n", .{})
@@ -40,6 +41,11 @@ fn uciInfo() !void {
     try stdout.print("uciok\n", .{});
 }
 
+fn parseUCINewGame(board: *Board) !void {
+    try board.parseFEN(startpos);
+    tt.table.clear();
+}
+
 pub fn parsePosition(board: *Board, command: []const u8) !void {
     var parts = std.mem.tokenizeSequence(u8, command[9..], " ");
     if (std.mem.eql(u8, parts.next().?, "startpos")) {
@@ -50,7 +56,6 @@ pub fn parsePosition(board: *Board, command: []const u8) !void {
                 makeMove(board, parseMoveString(board, parts.next().?));
             }
         }
-        std.debug.print("0x{x}\n", .{board.posKey});
         return;
     } else parts.reset();
     if (std.mem.eql(u8, parts.next().?, "fen")) {
@@ -76,7 +81,7 @@ pub fn parseGo(board: *Board, command: []const u8) !void {
     if (std.mem.eql(u8, parts.next().?, "depth"))
         depth = try std.fmt.parseInt(u8, parts.next().?, 10)
     else {
-        depth = 8;
+        depth = 6;
     }
     try searchPos(board, depth);
 }

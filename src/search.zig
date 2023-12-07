@@ -107,21 +107,11 @@ fn negamax(board: *Board, alpha_: i16, beta_: i16, depth_: u8) i16 {
 
         // move fail high
         if (score >= beta) {
-            if (move.isQuiet()) {
-                killer[board.ply][1] = killer[board.ply][0];
-                killer[board.ply][0] = move;
-            }
-
             tt.table.storeHashEntry(board.posKey, move.getMoveKey(), score, NO_SCORE, depth, Bound.beta);
 
             return beta;
         }
         if (score > alpha) {
-            // store history move
-            if (move.isQuiet()) {
-                history[move.src][move.dest] += @as(i16, depth) * @as(i16, depth);
-            }
-
             // update best move key to be stored in TT at the end
             best_move_key = move.getMoveKey();
 
@@ -202,7 +192,7 @@ fn scoreMove(board: *Board, smove: *ScoredMove) void {
     if (board.scorePV) {
         if (@as(u20, @bitCast(pvTable[0][board.ply])) == @as(u20, @bitCast(smove.move))) {
             board.scorePV = false;
-            smove.score += 15000;
+            smove.score = 5000000;
             return;
         }
     }
@@ -214,18 +204,6 @@ fn scoreMove(board: *Board, smove: *ScoredMove) void {
                 return;
             }
         }
-    } else {
-        if (@as(u20, @bitCast(killer[board.ply][0])) == @as(u20, @bitCast(smove.move))) {
-            smove.score += 6000;
-            return;
-        }
-        if (@as(u20, @bitCast(killer[board.ply][1])) == @as(u20, @bitCast(smove.move))) {
-            smove.score += 4000;
-            return;
-        }
-        // return history score
-        smove.score = history[smove.move.src][smove.move.dest];
-        return;
     }
 }
 
@@ -266,21 +244,17 @@ pub fn searchPos(board: *Board, depth: u8) !void {
         alpha = score - 40;
         beta = score + 40;
     }
-    std.debug.print("bestmove {s}\n", .{uci.uciMove(pvTable[0][0])});
     try stdout.print("bestmove {s}\n", .{uci.uciMove(pvTable[0][0])});
 }
 
 var pvTable: [MAX_PLY][MAX_PLY]Move = undefined;
 var pvLength: [MAX_PLY]usize = [_]usize{0} ** MAX_PLY;
 
-var killer: [MAX_PLY][2]Move = undefined;
-var history = std.mem.zeroes([64][64]i16);
-
-const MVV_LVA = [6][6]i16{
-    [6]i16{ 105, 205, 305, 405, 505, 605 },
-    [6]i16{ 104, 204, 304, 404, 504, 604 },
-    [6]i16{ 103, 203, 303, 403, 503, 603 },
-    [6]i16{ 102, 202, 302, 402, 502, 602 },
-    [6]i16{ 101, 201, 301, 401, 501, 601 },
-    [6]i16{ 100, 200, 300, 400, 500, 600 },
+const MVV_LVA = [6][6]u32{
+    [6]u32{ 105, 205, 305, 405, 505, 605 },
+    [6]u32{ 104, 204, 304, 404, 504, 604 },
+    [6]u32{ 103, 203, 303, 403, 503, 603 },
+    [6]u32{ 102, 202, 302, 402, 502, 602 },
+    [6]u32{ 101, 201, 301, 401, 501, 601 },
+    [6]u32{ 100, 200, 300, 400, 500, 600 },
 };
