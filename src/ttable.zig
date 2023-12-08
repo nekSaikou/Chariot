@@ -87,6 +87,7 @@ pub const TTable = struct {
     pub fn initTT(self: *@This(), size: usize) void {
         self.size = size * MB / @sizeOf(HashEntry);
 
+        self.data.clearAndFree();
         self.data.ensureTotalCapacity(self.size) catch {};
         self.data.expandToCapacity();
     }

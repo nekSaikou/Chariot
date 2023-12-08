@@ -10,24 +10,27 @@ const ScoredMove = @import("types.zig").ScoredMove;
 const MoveList = @import("types.zig").MoveList;
 const Board = @import("types.zig").Board;
 const Square = @import("types.zig").Square;
+const ThreadData = @import("types.zig").ThreadData;
 const genLegal = @import("movegen.zig").genLegal;
 const makeMove = @import("makemove.zig").makeMove;
 const tt = @import("ttable.zig");
+const perftTest = @import("perft.zig").perftTest;
+const search = @import("search.zig").deepening;
 
 pub fn mainLoop() !void {
     var buf: [2048]u8 = undefined;
-    var pos: Board = .{};
+    var td: ThreadData = .{};
 
     while (true) {
         const input = try stdin.readUntilDelimiterOrEof(&buf, '\n') orelse break;
 
         // zig fmt: off
         try if (std.mem.startsWith(u8, input, "quit") or std.mem.startsWith(u8, input, "stop")) break
-        else if (std.mem.startsWith(u8, input, "ucinewgame")) parseUCINewGame(&pos)
+        else if (std.mem.startsWith(u8, input, "ucinewgame")) parseUCINewGame(&td)
         else if (std.mem.startsWith(u8, input, "uci")) try uciInfo()
-        else if (std.mem.startsWith(u8, input, "position")) parsePosition(&pos, input)
+        else if (std.mem.startsWith(u8, input, "position")) parsePosition(&td, input)
         else if (std.mem.startsWith(u8, input, "isready")) try stdout.print("readyok\n", .{})
-        else if (std.mem.startsWith(u8, input, "go")) try parseGo(&pos, input)
+        else if (std.mem.startsWith(u8, input, "go")) try parseGo(&td, input)
         else if (std.mem.startsWith(u8, input, "setoption")) try parseSetoption(input)
         else { try stdout.print("invalid input: {s}\n", .{input}); continue; };
         // zig fmt: on
@@ -40,11 +43,12 @@ fn uciInfo() !void {
     try stdout.print("uciok\n", .{});
 }
 
-fn parseUCINewGame(board: *Board) void {
-    board.parseFEN(startpos);
+fn parseUCINewGame(td: *ThreadData) void {
+    td.board.parseFEN(startpos);
 }
 
-pub fn parsePosition(board: *Board, command: []const u8) !void {
+pub fn parsePosition(td: *ThreadData, command: []const u8) !void {
+    var board: *Board = &td.board;
     var parts = std.mem.tokenizeSequence(u8, command[9..], " ");
     if (std.mem.eql(u8, parts.next().?, "startpos")) {
         board.parseFEN(startpos);
@@ -73,10 +77,72 @@ pub fn parseSetoption(command: []const u8) !void {
     //TODO: implement options
 }
 
-pub fn parseGo(board: *Board, command: []const u8) !void {
+pub fn parseGo(td: *ThreadData, command: []const u8) !void {
     var parts = std.mem.tokenizeSequence(u8, command[3..], " ");
-    _ = parts;
-    _ = board;
+    var depth: ?u8 = null;
+    var time: ?usize = null;
+    var inc: ?usize = null;
+    var movestogo: ?usize = null;
+    var movetime: ?usize = null;
+
+    td.searchInfo = .{};
+    while (true) {
+        var part = parts.next();
+        if (part == null) break;
+        if (std.mem.eql(u8, part.?, "infinite")) {
+            td.searchInfo.infinite = true;
+        }
+        if (std.mem.eql(u8, part.?, "depth")) {
+            part = parts.next();
+            if (part == null) break;
+            depth = std.fmt.parseUnsigned(u8, part.?, 10) catch 5;
+        }
+        if (std.mem.eql(u8, part.?, "wtime") and td.board.side == 0) {
+            part = parts.next();
+            if (part == null) break;
+            time = std.fmt.parseUnsigned(usize, part.?, 10) catch unreachable;
+        }
+        if (std.mem.eql(u8, part.?, "btime") and td.board.side == 1) {
+            part = parts.next();
+            if (part == null) break;
+            time = std.fmt.parseUnsigned(usize, part.?, 10) catch unreachable;
+        }
+        if (std.mem.eql(u8, part.?, "winc") and td.board.side == 0) {
+            part = parts.next();
+            if (part == null) break;
+            inc = std.fmt.parseUnsigned(usize, part.?, 10) catch unreachable;
+        }
+        if (std.mem.eql(u8, part.?, "binc") and td.board.side == 1) {
+            part = parts.next();
+            if (part == null) break;
+            inc = std.fmt.parseUnsigned(usize, part.?, 10) catch unreachable;
+        }
+        if (std.mem.eql(u8, part.?, "movetime")) {
+            part = parts.next();
+            if (part == null) break;
+            movetime = std.fmt.parseUnsigned(usize, part.?, 10) catch unreachable;
+        }
+        if (std.mem.eql(u8, part.?, "movestogo")) {
+            part = parts.next();
+            if (part == null) break;
+            movestogo = std.fmt.parseUnsigned(usize, part.?, 10) catch unreachable;
+        }
+    }
+
+    if (movetime != null) {
+        time = movetime.?;
+        movestogo = 1;
+    }
+
+    td.searchInfo.depth = depth orelse 40;
+
+    if (time != null) {
+        time.? /= (movestogo orelse 40);
+        td.searchInfo.timeset = true;
+        td.searchInfo.timeLim = time.? - 50 + (inc orelse 0);
+    }
+
+    search(td);
 }
 
 pub fn uciMove(move: Move) []const u8 {

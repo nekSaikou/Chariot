@@ -142,9 +142,37 @@ pub const Board = struct {
     }
 };
 
-const PVTable = struct {
+pub const PVTable = struct {
     length: [MAX_PLY + 1]u8 = std.mem.zeroes([MAX_PLY + 1]u8),
     moves: [MAX_PLY + 1][MAX_PLY + 1]Move = undefined,
+};
+
+pub const SearchInfo = struct {
+    movestogo: usize = 0,
+    depth: usize = 5,
+    timeLim: usize = 500000,
+
+    timeset: bool = false,
+    depthset: bool = false,
+    infinite: bool = false,
+
+    nodes: usize = 0,
+
+    quit: bool = false,
+    stop: bool = false,
+};
+
+pub const SearchData = struct {
+    history: [2][64][64]i32 = std.mem.zeroes([2][64][64]i32),
+    killer: [2][MAX_PLY]Move = undefined,
+};
+
+pub const ThreadData = struct {
+    timer: std.time.Timer = undefined,
+    board: Board = .{},
+    searchData: SearchData = .{},
+    searchInfo: SearchInfo = .{},
+    pvTable: PVTable = .{},
 };
 
 pub const MoveList = struct {
