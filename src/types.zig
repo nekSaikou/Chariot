@@ -26,11 +26,6 @@ pub const Board = struct {
     pinDiag: u64 = 0,
     pinOrth: u64 = 0,
 
-    // search flags
-    scorePV: bool = false,
-    followPV: bool = false,
-    nmp: bool = true,
-
     pub inline fn pieceBB(self: @This(), piece: u3, color: u1) u64 {
         return self.pieces[piece] & self.occupancy[color];
     }
@@ -67,7 +62,7 @@ pub const Board = struct {
         return null;
     }
 
-    pub fn parseFEN(self: *@This(), str: []const u8) !void {
+    pub fn parseFEN(self: *@This(), str: []const u8) void {
         self.* = Board{};
 
         var rank: u6 = 0;
@@ -80,7 +75,7 @@ pub const Board = struct {
             const char = str[index];
             switch (char) {
                 '0'...'9' => {
-                    file += try std.fmt.parseUnsigned(u6, str[index..(index + 1)], 10) - 1;
+                    file += (std.fmt.parseUnsigned(u6, str[index..(index + 1)], 10) catch unreachable) - 1;
                 },
                 'P', 'N', 'B', 'R', 'Q', 'K' => {
                     const sqr = @as(u6, rank * 8 + file);
@@ -138,7 +133,7 @@ pub const Board = struct {
         }
         const enpassant = parts.next().?;
         if (enpassant[0] != '-') {
-            const r = 8 - @as(u6, @intCast(try std.fmt.parseUnsigned(u3, enpassant[1..], 10)));
+            const r = 8 - @as(u6, @intCast(std.fmt.parseUnsigned(u3, enpassant[1..], 10) catch unreachable));
             const f = enpassant[0] - 'a';
             self.epSqr = @intCast(r * 8 + f);
         } else self.epSqr = null;
@@ -147,9 +142,9 @@ pub const Board = struct {
     }
 };
 
-pub const PVTable = struct {
-    pvLength: [MAX_PLY + 1]usize = undefined,
-    pvArray: [MAX_PLY + 1][MAX_PLY + 1]Move = undefined,
+const PVTable = struct {
+    length: [MAX_PLY + 1]u8 = std.mem.zeroes([MAX_PLY + 1]u8),
+    moves: [MAX_PLY + 1][MAX_PLY + 1]Move = undefined,
 };
 
 pub const MoveList = struct {
@@ -200,23 +195,6 @@ pub const Move = packed struct(u20) {
     pub inline fn isQuiet(self: @This()) bool {
         return !isCapture(self) and !isPromo(self);
     }
-};
-
-pub const MoveType = enum(usize) {
-    Quiet,
-    doublePush,
-    KSCastle,
-    QSCastle,
-    Capture,
-    enPassant,
-    knightPromo = 8,
-    bishopPromo,
-    rookPromo,
-    queenPromo,
-    knightCapturePromo,
-    bishopCapturePromo,
-    rookCapturePromo,
-    queenCapturePromo,
 };
 
 pub const Square = enum(u6) {

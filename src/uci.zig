@@ -12,25 +12,24 @@ const Board = @import("types.zig").Board;
 const Square = @import("types.zig").Square;
 const genLegal = @import("movegen.zig").genLegal;
 const makeMove = @import("makemove.zig").makeMove;
-const searchPos = @import("search.zig").searchPos;
 const tt = @import("ttable.zig");
 
 pub fn mainLoop() !void {
     var buf: [2048]u8 = undefined;
-    var board: Board = .{};
+    var pos: Board = .{};
 
     while (true) {
         const input = try stdin.readUntilDelimiterOrEof(&buf, '\n') orelse break;
 
         // zig fmt: off
-        if (std.mem.startsWith(u8, input, "quit") or std.mem.startsWith(u8, input, "stop")) break
-        else if (std.mem.startsWith(u8, input, "ucinewgame")) try parseUCINewGame(&board)
+        try if (std.mem.startsWith(u8, input, "quit") or std.mem.startsWith(u8, input, "stop")) break
+        else if (std.mem.startsWith(u8, input, "ucinewgame")) parseUCINewGame(&pos)
         else if (std.mem.startsWith(u8, input, "uci")) try uciInfo()
-        else if (std.mem.startsWith(u8, input, "position")) try parsePosition(&board, input)
+        else if (std.mem.startsWith(u8, input, "position")) parsePosition(&pos, input)
         else if (std.mem.startsWith(u8, input, "isready")) try stdout.print("readyok\n", .{})
-        else if (std.mem.startsWith(u8, input, "go")) try parseGo(&board, input)
+        else if (std.mem.startsWith(u8, input, "go")) try parseGo(&pos, input)
         else if (std.mem.startsWith(u8, input, "setoption")) try parseSetoption(input)
-        else { try stdout.print("invalid input: {s}\n", .{input}); continue; }
+        else { try stdout.print("invalid input: {s}\n", .{input}); continue; };
         // zig fmt: on
     }
 }
@@ -41,15 +40,14 @@ fn uciInfo() !void {
     try stdout.print("uciok\n", .{});
 }
 
-fn parseUCINewGame(board: *Board) !void {
-    try board.parseFEN(startpos);
-    tt.table.clear();
+fn parseUCINewGame(board: *Board) void {
+    board.parseFEN(startpos);
 }
 
 pub fn parsePosition(board: *Board, command: []const u8) !void {
     var parts = std.mem.tokenizeSequence(u8, command[9..], " ");
     if (std.mem.eql(u8, parts.next().?, "startpos")) {
-        try board.parseFEN(startpos);
+        board.parseFEN(startpos);
         if (parts.peek() == null) return;
         if (std.mem.eql(u8, parts.next().?, "moves")) {
             while (parts.peek() != null) {
@@ -59,7 +57,7 @@ pub fn parsePosition(board: *Board, command: []const u8) !void {
         return;
     } else parts.reset();
     if (std.mem.eql(u8, parts.next().?, "fen")) {
-        try board.parseFEN(command[13..]);
+        board.parseFEN(command[13..]);
         while (parts.peek() != null and !std.mem.eql(u8, parts.peek().?, "moves")) _ = parts.next();
         if (parts.peek() != null and std.mem.eql(u8, parts.next().?, "moves")) {
             while (parts.peek() != null) {
@@ -77,13 +75,8 @@ pub fn parseSetoption(command: []const u8) !void {
 
 pub fn parseGo(board: *Board, command: []const u8) !void {
     var parts = std.mem.tokenizeSequence(u8, command[3..], " ");
-    var depth: u8 = 1;
-    if (std.mem.eql(u8, parts.next().?, "depth"))
-        depth = try std.fmt.parseInt(u8, parts.next().?, 10)
-    else {
-        depth = 6;
-    }
-    try searchPos(board, depth);
+    _ = parts;
+    _ = board;
 }
 
 pub fn uciMove(move: Move) []const u8 {

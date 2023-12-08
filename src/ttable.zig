@@ -8,9 +8,7 @@ const KB: usize = 1024;
 
 pub const Bound = enum(u2) { none, alpha, beta, exact };
 
-pub var table: TTable = .{};
-
-pub const HashEntry = packed struct(u128) {
+const HashEntry = packed struct(u128) {
     bestMove: u16 = 0,
     score: i16 = 0, // score from search
     eval: i16 = 0, // static eval
@@ -85,11 +83,11 @@ pub const TTable = struct {
     pub inline fn index(self: *@This(), hash: u64) u64 {
         return @as(u64, @intCast(@as(u128, @intCast(hash)) * @as(u128, @intCast(self.size)) >> 64));
     }
+
+    pub fn initTT(self: *@This(), size: usize) void {
+        self.size = size * MB / @sizeOf(HashEntry);
+
+        self.data.ensureTotalCapacity(self.size) catch {};
+        self.data.expandToCapacity();
+    }
 };
-
-pub fn initTT(size: usize) void {
-    table.size = size * MB / @sizeOf(HashEntry);
-
-    table.data.ensureTotalCapacity(table.size) catch {};
-    table.data.expandToCapacity();
-}
