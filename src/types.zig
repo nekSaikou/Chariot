@@ -4,6 +4,7 @@ const getBit = @import("bitboard.zig").getBit;
 const setBit = @import("bitboard.zig").setBit;
 const popBit = @import("bitboard.zig").popBit;
 const zobrist = @import("zobrist.zig");
+const TTable = @import("ttable.zig").TTable;
 
 pub const MAX_PLY: usize = 200;
 
@@ -172,6 +173,7 @@ pub const SearchData = struct {
 pub const ThreadData = struct {
     timer: std.time.Timer = undefined,
     board: Board = .{},
+    ttable: *TTable,
     searchData: SearchData = .{},
     searchInfo: SearchInfo = .{},
     pvTable: PVTable = .{},

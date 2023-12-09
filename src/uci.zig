@@ -16,10 +16,14 @@ const makeMove = @import("makemove.zig").makeMove;
 const tt = @import("ttable.zig");
 const perftTest = @import("perft.zig").perftTest;
 const search = @import("search.zig").deepening;
+const TTable = @import("ttable.zig").TTable;
+
+var ttable: TTable = .{};
 
 pub fn mainLoop() !void {
     var buf: [2048]u8 = undefined;
-    var td: ThreadData = .{};
+    var td: ThreadData = .{ .ttable = &ttable };
+    ttable.initTT(16);
 
     while (true) {
         const input = try stdin.readUntilDelimiterOrEof(&buf, '\n') orelse break;
@@ -44,7 +48,8 @@ fn uciInfo() !void {
 }
 
 fn parseUCINewGame(td: *ThreadData) void {
-    td.* = .{};
+    ttable.clear();
+    td.* = .{ .ttable = &ttable };
     td.board.parseFEN(startpos);
 }
 
@@ -138,9 +143,9 @@ pub fn parseGo(td: *ThreadData, command: []const u8) !void {
     td.searchInfo.depth = depth orelse 40;
 
     if (time != null) {
-        time.? /= (movestogo orelse 40);
+        time.? /= (movestogo orelse 25);
         td.searchInfo.timeset = true;
-        td.searchInfo.timeLim = time.? - 50 + (inc orelse 0);
+        td.searchInfo.timeLim = time.? - 100 + (inc orelse 0);
     }
 
     search(td);

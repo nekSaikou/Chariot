@@ -67,6 +67,23 @@ pub fn negamax(td: *ThreadData, alpha_: i16, beta_: i16, depth_: u8) i16 {
     var board: *Board = &td.board;
     var pvTable: *PVTable = &td.pvTable;
 
+    const ttEntry = td.ttable.data.items[td.ttable.index(board.posKey)];
+    var best_move_key: u16 = 0; // used for ordering with TT
+
+    // TT cutoff
+    if (td.ttable.probeHashEntry(board)) {
+        score = ttEntry.score;
+        best_move_key = ttEntry.bestMove;
+        // make sure the node is not PV and the TT entry is not worse
+        if (alpha -% beta == -1 and depth <= ttEntry.depth)
+            switch (ttEntry.bound) {
+                Bound.none => {},
+                Bound.alpha => if (score <= alpha) return score,
+                Bound.beta => if (score >= beta) return score,
+                Bound.exact => return score,
+            };
+    }
+
     pvTable.length[board.ply] = @intCast(board.ply);
     // perform qsearch at root node
     if (depth == 0) return qsearch(td, alpha, beta);
@@ -135,11 +152,15 @@ pub fn negamax(td: *ThreadData, alpha_: i16, beta_: i16, depth_: u8) i16 {
                     td.searchData.killer[0][board.ply] = move;
                     td.searchData.history[board.side][move.src][move.dest] += depth * depth;
                 }
+                td.ttable.storeHashEntry(board.posKey, move.getMoveKey(), score, NO_SCORE, depth, Bound.beta);
                 return beta;
             }
             // better move is found, update alpha
             alpha = score; // collect PV
             foundPV = true;
+
+            // update best move key to be stored in TT
+            best_move_key = move.getMoveKey();
 
             pvTable.moves[board.ply][board.ply] = list.moves[count].move;
             for ((board.ply + 1)..pvTable.length[board.ply + 1]) |nextPly|
@@ -147,6 +168,8 @@ pub fn negamax(td: *ThreadData, alpha_: i16, beta_: i16, depth_: u8) i16 {
             pvTable.length[board.ply] = pvTable.length[board.ply + 1];
         }
     }
+    const bound = if (foundPV) Bound.exact else Bound.alpha;
+    td.ttable.storeHashEntry(board.posKey, best_move_key, score, NO_SCORE, depth, bound);
     return alpha;
 }
 
