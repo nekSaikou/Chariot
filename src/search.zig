@@ -237,6 +237,10 @@ fn sortMoves(td: *ThreadData, list: *MoveList) void {
 
 fn scoreMove(td: *ThreadData, smove: *ScoredMove) void {
     var board: *Board = &td.board;
+    // is TT move
+    if (smove.move.getMoveKey() == td.ttable.data.items[td.ttable.index(board.posKey)].bestMove)
+        smove.score += 1500000;
+    // is PV move, give the highest bonus
     if (td.searchData.scorePV)
         if (td.pvTable.moves[0][td.board.ply].getMoveKey() == smove.move.getMoveKey()) {
             td.searchData.scorePV = false;
