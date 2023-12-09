@@ -29,7 +29,8 @@ pub fn mainLoop() !void {
         const input = try stdin.readUntilDelimiterOrEof(&buf, '\n') orelse break;
 
         // zig fmt: off
-        try if (std.mem.startsWith(u8, input, "quit") or std.mem.startsWith(u8, input, "stop")) break
+        try if (std.mem.startsWith(u8, input, "quit"))  break
+        else if (std.mem.startsWith(u8, input, "stop")) {td.searchInfo.stop = true;}
         else if (std.mem.startsWith(u8, input, "ucinewgame")) parseUCINewGame(&td)
         else if (std.mem.startsWith(u8, input, "uci")) try uciInfo()
         else if (std.mem.startsWith(u8, input, "position")) parsePosition(&td, input)

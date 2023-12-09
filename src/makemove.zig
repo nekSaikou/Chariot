@@ -66,6 +66,16 @@ pub fn makeMove(board: *Board, move: Move) void {
     hashKey(board, zobrist.SideKey);
 }
 
+pub fn makeNullMove(board: *Board) void {
+    // simply pass a turn
+    board.ply += 1;
+    board.side ^= 1;
+    hashKey(board, zobrist.SideKey);
+    if (board.epSqr != null)
+        hashKey(board, zobrist.EnPassantKeys[board.epSqr.?]);
+    board.epSqr = null;
+}
+
 inline fn movePiece(board: *Board, src: u6, dest: u6, piece: u3, color: u1) void {
     clearPiece(board, src, piece, color);
     addPiece(board, dest, piece, color);

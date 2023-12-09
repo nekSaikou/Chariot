@@ -15,6 +15,7 @@ const setBit = @import("bitboard.zig").setBit;
 const popBit = @import("bitboard.zig").popBit;
 const genLegal = @import("movegen.zig").genLegal;
 const makeMove = @import("makemove.zig").makeMove;
+const makeNullMove = @import("makemove.zig").makeNullMove;
 const evaluate = @import("eval.zig").evaluate;
 const uci = @import("uci.zig");
 const TTable = @import("ttable.zig").TTable;
@@ -24,6 +25,7 @@ const MAX_PLY: usize = 200;
 const INFINITY: i16 = 32000;
 const CHECKMATE: i16 = 30000;
 const NO_SCORE: i16 = -32700;
+const R: u8 = 3;
 
 pub fn deepening(td: *ThreadData) void {
     var bestMove: Move = .{};
@@ -38,8 +40,6 @@ pub fn deepening(td: *ThreadData) void {
 
         // stop searching
         if (td.searchInfo.stop) break;
-
-        // TODO: out of time
 
         writer.print("info score cp {} depth {} nodes {} time {} pv", .{
             bestScore,
@@ -63,15 +63,17 @@ pub fn negamax(td: *ThreadData, alpha_: i16, beta_: i16, depth_: u8) i16 {
     var alpha = alpha_;
     var beta = beta_;
     var depth = depth_;
-    var score: i16 = 0;
+    var score: i16 = -INFINITY;
     var board: *Board = &td.board;
     var pvTable: *PVTable = &td.pvTable;
 
     const ttEntry = td.ttable.data.items[td.ttable.index(board.posKey)];
-    var best_move_key: u16 = 0; // used for ordering with TT
+    var best_move_key: u16 = 0; // stored in TT at the end
+    var tt_hit: bool = false;
 
     // TT cutoff
     if (td.ttable.probeHashEntry(board)) {
+        tt_hit = true;
         score = ttEntry.score;
         best_move_key = ttEntry.bestMove;
         // make sure the node is not PV and the TT entry is not worse
@@ -109,6 +111,25 @@ pub fn negamax(td: *ThreadData, alpha_: i16, beta_: i16, depth_: u8) i16 {
     var list: MoveList = .{};
     genLegal(board, &list);
     sortMoves(td, &list);
+
+    // null move pruning
+    // don't do this in the endgame to prevent falling for zugzwang
+    if (alpha -% beta == -1 and
+        attacks_on_king == 0 and
+        depth >= 4 and
+        board.allPieces() != board.pieces[5] | board.pieces[0] and
+        @popCount(board.allPieces()) > 5 and
+        (!tt_hit or ttEntry.bound != Bound.beta or ttEntry.score >= beta))
+    {
+        const boardCopy = board.*;
+
+        makeNullMove(board);
+        var nmp_score: i16 = -negamax(td, -beta, -beta + 1, depth - 1 - R);
+
+        board.* = boardCopy;
+
+        if (nmp_score >= beta) return beta;
+    }
 
     // no legal move on the board
     if (list.count == 0) {
