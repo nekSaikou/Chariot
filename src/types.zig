@@ -182,7 +182,7 @@ pub const MoveList = struct {
 
 pub const ScoredMove = struct {
     move: Move = .{},
-    score: u32 = 0,
+    score: i32 = 0,
 };
 
 pub const Move = packed struct(u20) {

@@ -117,8 +117,11 @@ pub fn negamax(td: *ThreadData, alpha_: i16, beta_: i16, depth_: u8) i16 {
         if (score > alpha) {
             // move fail high
             if (score >= beta) {
-                td.searchData.killer[1][board.ply] = td.searchData.killer[0][board.ply];
-                td.searchData.killer[0][board.ply] = move;
+                if (move.isQuiet()) {
+                    td.searchData.killer[1][board.ply] = td.searchData.killer[0][board.ply];
+                    td.searchData.killer[0][board.ply] = move;
+                    td.searchData.history[board.side][move.src][move.dest] += depth * depth;
+                }
                 return beta;
             }
             // better move is found, update alpha
@@ -199,7 +202,7 @@ fn scoreMove(td: *ThreadData, smove: *ScoredMove) void {
     var board: *Board = &td.board;
 
     if (smove.move.isCapture()) {
-        smove.score = 1000000;
+        smove.score += 1000000;
         for (0..6) |victim| {
             if (getBit(board.occupancy[board.side ^ 1] & board.pieces[victim], smove.move.dest) != 0) {
                 smove.score += MVV_LVA[smove.move.piece][victim];
@@ -207,11 +210,12 @@ fn scoreMove(td: *ThreadData, smove: *ScoredMove) void {
         }
     } else {
         if (td.searchData.killer[0][board.ply].getMoveKey() == smove.move.getMoveKey()) {
-            smove.score = 900000;
+            smove.score += 900000;
         }
         if (td.searchData.killer[1][board.ply].getMoveKey() == smove.move.getMoveKey()) {
-            smove.score = 800000;
+            smove.score += 800000;
         }
+        smove.score += td.searchData.history[board.side][smove.move.src][smove.move.dest];
     }
 }
 
@@ -229,11 +233,11 @@ pub fn checkUp(td: *ThreadData) void {
         td.searchInfo.stop = true;
 }
 
-const MVV_LVA = [6][6]u32{
-    [6]u32{ 105, 205, 305, 405, 505, 605 },
-    [6]u32{ 104, 204, 304, 404, 504, 604 },
-    [6]u32{ 103, 203, 303, 403, 503, 603 },
-    [6]u32{ 102, 202, 302, 402, 502, 602 },
-    [6]u32{ 101, 201, 301, 401, 501, 601 },
-    [6]u32{ 100, 200, 300, 400, 500, 600 },
+const MVV_LVA = [6][6]i32{
+    [6]i32{ 105, 205, 305, 405, 505, 605 },
+    [6]i32{ 104, 204, 304, 404, 504, 604 },
+    [6]i32{ 103, 203, 303, 403, 503, 603 },
+    [6]i32{ 102, 202, 302, 402, 502, 602 },
+    [6]i32{ 101, 201, 301, 401, 501, 601 },
+    [6]i32{ 100, 200, 300, 400, 500, 600 },
 };
