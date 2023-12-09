@@ -25,7 +25,7 @@ pub fn initRandomKeys() void {
     SideKey = seed.rand();
 }
 
-pub fn genPosKey(board: Board) u64 {
+pub fn genPosKey(board: *Board) u64 {
     var key: u64 = 0;
 
     for (0..64) |sqr| {

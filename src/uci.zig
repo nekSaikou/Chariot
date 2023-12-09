@@ -44,6 +44,7 @@ fn uciInfo() !void {
 }
 
 fn parseUCINewGame(td: *ThreadData) void {
+    td.* = .{};
     td.board.parseFEN(startpos);
 }
 

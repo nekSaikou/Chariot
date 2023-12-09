@@ -8,7 +8,7 @@ const getBit = @import("bitboard.zig").getBit;
 const setBit = @import("bitboard.zig").setBit;
 const popBit = @import("bitboard.zig").popBit;
 
-pub inline fn evaluate(board: Board) i16 {
+pub inline fn evaluate(board: *Board) i16 {
     var score: i16 = 0;
     var bitboard: u64 = undefined;
     var sqr: u6 = undefined;

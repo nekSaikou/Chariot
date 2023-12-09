@@ -138,7 +138,7 @@ pub const Board = struct {
             self.epSqr = @intCast(r * 8 + f);
         } else self.epSqr = null;
 
-        self.posKey = zobrist.genPosKey(self.*);
+        self.posKey = zobrist.genPosKey(self);
     }
 };
 
@@ -165,6 +165,8 @@ pub const SearchInfo = struct {
 pub const SearchData = struct {
     history: [2][64][64]i32 = std.mem.zeroes([2][64][64]i32),
     killer: [2][MAX_PLY]Move = undefined,
+    scorePV: bool = false,
+    followPV: bool = false,
 };
 
 pub const ThreadData = struct {

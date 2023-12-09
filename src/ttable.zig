@@ -61,7 +61,7 @@ pub const TTable = struct {
         }
     }
 
-    pub inline fn probeHashEntry(self: *@This(), board: Board) bool {
+    pub inline fn probeHashEntry(self: *@This(), board: *Board) bool {
         const tt_index: u64 = self.index(board.posKey);
         const entry: HashEntry = self.data.items[tt_index];
 
@@ -72,7 +72,7 @@ pub const TTable = struct {
         self.age +%= 1;
     }
 
-    pub inline fn prefetch(self: *@This(), board: Board) void {
+    pub inline fn prefetch(self: *@This(), board: *Board) void {
         @prefetch(&self.data.items[self.index(board.posKey)], .{
             .rw = .read,
             .locality = 2,

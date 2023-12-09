@@ -32,6 +32,8 @@ pub fn deepening(td: *ThreadData) void {
     clearForSearch(td);
 
     for (1..td.searchInfo.depth + 1) |currDepth| {
+        // enable follow PV
+        td.searchData.followPV = true;
         bestScore = negamax(td, -INFINITY, INFINITY, @intCast(currDepth));
 
         // stop searching
@@ -71,7 +73,7 @@ pub fn negamax(td: *ThreadData, alpha_: i16, beta_: i16, depth_: u8) i16 {
     // fifty moves rule
     if (board.hmc >= 100) return 0;
     // max ply guard
-    if (board.ply >= MAX_PLY) return evaluate(board.*);
+    if (board.ply >= MAX_PLY) return evaluate(board);
 
     if (td.searchInfo.nodes & 2047 == 0) checkUp(td);
     td.searchInfo.nodes += 1;
@@ -99,6 +101,10 @@ pub fn negamax(td: *ThreadData, alpha_: i16, beta_: i16, depth_: u8) i16 {
         return 0;
     }
 
+    if (td.searchData.followPV) enablePVScoring(td, &list);
+    // set to true after the first alpha raise
+    var foundPV: bool = false;
+
     for (0..list.count) |count| {
         const move = list.moves[count].move;
         const board_copy = board.*;
@@ -106,7 +112,14 @@ pub fn negamax(td: *ThreadData, alpha_: i16, beta_: i16, depth_: u8) i16 {
         makeMove(board, move);
 
         // run search
-        score = -negamax(td, -beta, -alpha, depth - 1);
+        if (foundPV) {
+            score = -negamax(td, -alpha - 1, -alpha, depth - 1);
+            // PV node, perform full window search
+            if (score > alpha)
+                score = -negamax(td, -beta, -alpha, depth - 1);
+        } else {
+            score = -negamax(td, -beta, -alpha, depth - 1);
+        }
 
         // restore board
         board.* = board_copy;
@@ -126,6 +139,7 @@ pub fn negamax(td: *ThreadData, alpha_: i16, beta_: i16, depth_: u8) i16 {
             }
             // better move is found, update alpha
             alpha = score; // collect PV
+            foundPV = true;
 
             pvTable.moves[board.ply][board.ply] = list.moves[count].move;
             for ((board.ply + 1)..pvTable.length[board.ply + 1]) |nextPly|
@@ -141,7 +155,7 @@ fn qsearch(td: *ThreadData, alpha_: i16, beta_: i16) i16 {
     var board: *Board = &td.board;
     var alpha: i16 = alpha_;
     var beta: i16 = beta_;
-    var evaluation = evaluate(board.*);
+    var evaluation = evaluate(board);
     // return immediately if node fail high
     if (evaluation >= beta) return beta;
     if (evaluation > alpha) {
@@ -200,6 +214,12 @@ fn sortMoves(td: *ThreadData, list: *MoveList) void {
 
 fn scoreMove(td: *ThreadData, smove: *ScoredMove) void {
     var board: *Board = &td.board;
+    if (td.searchData.scorePV)
+        if (td.pvTable.moves[0][td.board.ply].getMoveKey() == smove.move.getMoveKey()) {
+            td.searchData.scorePV = false;
+            smove.score = 1 << 30;
+            return;
+        };
 
     if (smove.move.isCapture()) {
         smove.score += 1000000;
@@ -226,6 +246,15 @@ pub fn clearForSearch(td: *ThreadData) void {
 
     td.board.ply = 0;
     td.timer = std.time.Timer.start() catch unreachable;
+}
+
+fn enablePVScoring(td: *ThreadData, list: *MoveList) void {
+    td.searchData.followPV = false;
+    for (0..list.count) |count|
+        if (td.pvTable.moves[0][td.board.ply].getMoveKey() == list.moves[count].move.getMoveKey()) {
+            td.searchData.followPV = true;
+            td.searchData.scorePV = true;
+        };
 }
 
 pub fn checkUp(td: *ThreadData) void {
