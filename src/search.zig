@@ -67,6 +67,8 @@ pub fn negamax(td: *ThreadData, alpha_: i16, beta_: i16, depth_: u8) i16 {
     var board: *Board = &td.board;
     var pvTable: *PVTable = &td.pvTable;
 
+    const isPvNode: bool = alpha -% beta != -1;
+
     const ttEntry = td.ttable.data.items[td.ttable.index(board.posKey)];
     var best_move_key: u16 = 0; // stored in TT at the end
     var tt_hit: bool = false;
@@ -77,7 +79,7 @@ pub fn negamax(td: *ThreadData, alpha_: i16, beta_: i16, depth_: u8) i16 {
         score = ttEntry.score;
         best_move_key = ttEntry.bestMove;
         // make sure the node is not PV and the TT entry is not worse
-        if (alpha -% beta == -1 and depth <= ttEntry.depth)
+        if (!isPvNode and depth <= ttEntry.depth)
             switch (ttEntry.bound) {
                 Bound.none => {},
                 Bound.alpha => if (score <= alpha) return score,
@@ -114,7 +116,8 @@ pub fn negamax(td: *ThreadData, alpha_: i16, beta_: i16, depth_: u8) i16 {
 
     // null move pruning
     // don't do this in the endgame to prevent falling for zugzwang
-    if (alpha -% beta == -1 and
+    if (!isPvNode and
+        evaluate(board) >= beta and
         attacks_on_king == 0 and
         depth >= 4 and
         board.allPieces() != board.pieces[5] | board.pieces[0] and
@@ -146,6 +149,13 @@ pub fn negamax(td: *ThreadData, alpha_: i16, beta_: i16, depth_: u8) i16 {
     for (0..list.count) |count| {
         const move = list.moves[count].move;
         const board_copy = board.*;
+
+        //if (!isPvNode and attacks_on_king == 0) {
+        //    // late move pruning
+        //    // if depth is low, skip moves with lower score
+        //    if (depth <= 3 and count > depth * 10) break;
+        //}
+
         // make move
         makeMove(board, move);
 
@@ -240,9 +250,7 @@ fn qsearch(td: *ThreadData, alpha_: i16, beta_: i16) i16 {
 }
 
 fn sortMoves(td: *ThreadData, list: *MoveList) void {
-    for (0..list.count) |count| {
-        scoreMove(td, &list.moves[count]);
-    }
+    scoreMove(td, list);
     for (0..list.count) |current| {
         for (current..list.count + 1) |next| {
             const current_move = list.moves[current];
@@ -256,34 +264,36 @@ fn sortMoves(td: *ThreadData, list: *MoveList) void {
     }
 }
 
-fn scoreMove(td: *ThreadData, smove: *ScoredMove) void {
+fn scoreMove(td: *ThreadData, list: *MoveList) void {
     var board: *Board = &td.board;
-    // is TT move
-    if (smove.move.getMoveKey() == td.ttable.data.items[td.ttable.index(board.posKey)].bestMove)
-        smove.score += 1500000;
-    // is PV move, give the highest bonus
-    if (td.searchData.scorePV)
-        if (td.pvTable.moves[0][td.board.ply].getMoveKey() == smove.move.getMoveKey()) {
-            td.searchData.scorePV = false;
-            smove.score = 1 << 30;
-            return;
-        };
+    for (0..list.count) |count| {
+        var smove: *ScoredMove = &list.moves[count];
+        // is TT move
+        if (smove.move.getMoveKey() == td.ttable.data.items[td.ttable.index(board.posKey)].bestMove)
+            smove.score = 15000000;
+        // is PV move, give the highest bonus
+        if (td.searchData.scorePV)
+            if (td.pvTable.moves[0][td.board.ply].getMoveKey() == smove.move.getMoveKey()) {
+                td.searchData.scorePV = false;
+                smove.score = 1 << 30;
+                return;
+            };
 
-    if (smove.move.isCapture()) {
-        smove.score += 1000000;
-        for (0..6) |victim| {
-            if (getBit(board.occupancy[board.side ^ 1] & board.pieces[victim], smove.move.dest) != 0) {
-                smove.score += MVV_LVA[smove.move.piece][victim];
+        if (smove.move.isCapture()) {
+            smove.score += 10000000;
+            for (0..6) |victim| {
+                if (getBit(board.occupancy[board.side ^ 1] & board.pieces[victim], smove.move.dest) != 0) {
+                    smove.score += MVV_LVA[smove.move.piece][victim];
+                }
             }
+        } else {
+            if (td.searchData.killer[0][board.ply].getMoveKey() == smove.move.getMoveKey()) {
+                smove.score += 9000000;
+            } else if (td.searchData.killer[1][board.ply].getMoveKey() == smove.move.getMoveKey()) {
+                smove.score += 8000000;
+            }
+            smove.score += td.searchData.history[board.side][smove.move.src][smove.move.dest];
         }
-    } else {
-        if (td.searchData.killer[0][board.ply].getMoveKey() == smove.move.getMoveKey()) {
-            smove.score += 900000;
-        }
-        if (td.searchData.killer[1][board.ply].getMoveKey() == smove.move.getMoveKey()) {
-            smove.score += 800000;
-        }
-        smove.score += td.searchData.history[board.side][smove.move.src][smove.move.dest];
     }
 }
 

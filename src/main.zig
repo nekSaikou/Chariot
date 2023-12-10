@@ -6,14 +6,11 @@ const MoveList = @import("types.zig").MoveList;
 const perft = @import("perft.zig").perftTest;
 const makeMove = @import("makemove.zig").makeMove;
 const initRandomKeys = @import("zobrist.zig").initRandomKeys;
-const tt = @import("ttable.zig");
 const uci = @import("uci.zig");
 
 pub fn main() !void {
     atk.initAll();
     initRandomKeys();
-    var table: tt.TTable = .{};
-    table.initTT(16);
 
     try uci.mainLoop();
 }
