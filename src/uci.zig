@@ -11,6 +11,7 @@ const MoveList = @import("types.zig").MoveList;
 const Board = @import("types.zig").Board;
 const Square = @import("types.zig").Square;
 const ThreadData = @import("types.zig").ThreadData;
+const SearchInfo = @import("types.zig").SearchInfo;
 const genLegal = @import("movegen.zig").genLegal;
 const makeMove = @import("makemove.zig").makeMove;
 const tt = @import("ttable.zig");
@@ -19,10 +20,12 @@ const search = @import("search.zig").deepening;
 const TTable = @import("ttable.zig").TTable;
 
 var ttable: TTable = .{};
+threadlocal var pos: Board = .{};
+var info: SearchInfo = .{};
 
 pub fn mainLoop() !void {
     var buf: [2048]u8 = undefined;
-    var td: ThreadData = .{ .ttable = &ttable };
+    var td: ThreadData = .{ .ttable = &ttable, .board = &pos, .searchInfo = &info };
     ttable.initTT(16);
 
     while (true) {
@@ -50,12 +53,12 @@ fn uciInfo() !void {
 
 fn parseUCINewGame(td: *ThreadData) void {
     ttable.clear();
-    td.* = .{ .ttable = &ttable };
+    td.* = .{ .ttable = &ttable, .board = &pos, .searchInfo = &info };
     td.board.parseFEN(startpos);
 }
 
 pub fn parsePosition(td: *ThreadData, command: []const u8) !void {
-    var board: *Board = &td.board;
+    var board: *Board = td.board;
     var parts = std.mem.tokenizeSequence(u8, command[9..], " ");
     if (std.mem.eql(u8, parts.next().?, "startpos")) {
         board.parseFEN(startpos);
@@ -92,7 +95,7 @@ pub fn parseGo(td: *ThreadData, command: []const u8) !void {
     var movestogo: ?usize = null;
     var movetime: ?usize = null;
 
-    td.searchInfo = .{};
+    td.searchInfo.* = .{};
     while (true) {
         var part = parts.next();
         if (part == null) break;

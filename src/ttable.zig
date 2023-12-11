@@ -12,10 +12,10 @@ const HashEntry = packed struct(u128) {
     bestMove: u16 = 0,
     score: i16 = 0, // score from search
     eval: i16 = 0, // static eval
-    hashKey: u64 = 0,
     bound: Bound = Bound.none, // what caused the cutoff
     depth: u8 = 0,
     age: u6 = 0,
+    hashKey: u64 = 0,
 };
 
 const HashTable = std.ArrayList(HashEntry);
@@ -28,6 +28,7 @@ pub const TTable = struct {
     age: u6 = 0,
 
     pub inline fn clear(self: *@This()) void {
+        self.age = 0;
         for (self.data.items) |*ptr| {
             ptr.* = HashEntry{};
         }

@@ -149,6 +149,7 @@ pub const PVTable = struct {
 };
 
 pub const SearchInfo = struct {
+    timer: std.time.Timer = undefined,
     movestogo: usize = 0,
     depth: usize = 5,
     timeLim: usize = 500000,
@@ -171,12 +172,13 @@ pub const SearchData = struct {
 };
 
 pub const ThreadData = struct {
-    timer: std.time.Timer = undefined,
-    board: Board = .{},
+    board: *Board,
     ttable: *TTable,
+    searchInfo: *SearchInfo,
     searchData: SearchData = .{},
-    searchInfo: SearchInfo = .{},
     pvTable: PVTable = .{},
+
+    bestMove: Move = .{},
 };
 
 pub const MoveList = struct {

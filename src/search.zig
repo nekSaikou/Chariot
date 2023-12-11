@@ -28,7 +28,7 @@ const NO_SCORE: i16 = -32700;
 const R: u8 = 3;
 
 pub fn deepening(td: *ThreadData) void {
-    var bestMove: Move = .{};
+    var bestMove: *Move = &td.bestMove;
     var bestScore: i16 = -INFINITY;
 
     clearForSearch(td);
@@ -45,16 +45,16 @@ pub fn deepening(td: *ThreadData) void {
             bestScore,
             currDepth,
             td.searchInfo.nodes,
-            td.timer.read() / std.time.ns_per_ms,
+            td.searchInfo.timer.read() / std.time.ns_per_ms,
         }) catch unreachable;
         for (0..td.pvTable.length[0]) |count| {
             writer.print(" {s}", .{uci.uciMove(td.pvTable.moves[0][count])}) catch unreachable;
         }
         writer.print(" \n", .{}) catch unreachable;
-        bestMove = td.pvTable.moves[0][0];
+        bestMove.* = td.pvTable.moves[0][0];
         buf.flush() catch unreachable;
     }
-    writer.print("bestmove {s}\n", .{uci.uciMove(bestMove)}) catch unreachable;
+    writer.print("bestmove {s}\n", .{uci.uciMove(bestMove.*)}) catch unreachable;
     buf.flush() catch unreachable;
 }
 
@@ -64,7 +64,7 @@ pub fn negamax(td: *ThreadData, alpha_: i16, beta_: i16, depth_: u8) i16 {
     var beta = beta_;
     var depth = depth_;
     var score: i16 = -INFINITY;
-    var board: *Board = &td.board;
+    var board: *Board = td.board;
     var pvTable: *PVTable = &td.pvTable;
 
     const isPvNode: bool = alpha -% beta != -1;
@@ -206,7 +206,7 @@ pub fn negamax(td: *ThreadData, alpha_: i16, beta_: i16, depth_: u8) i16 {
 
 fn qsearch(td: *ThreadData, alpha_: i16, beta_: i16) i16 {
     @setEvalBranchQuota(5000000);
-    var board: *Board = &td.board;
+    var board: *Board = td.board;
     var alpha: i16 = alpha_;
     var beta: i16 = beta_;
     var evaluation = evaluate(board);
@@ -265,12 +265,12 @@ fn sortMoves(td: *ThreadData, list: *MoveList) void {
 }
 
 fn scoreMove(td: *ThreadData, list: *MoveList) void {
-    var board: *Board = &td.board;
+    var board: *Board = td.board;
     for (0..list.count) |count| {
         var smove: *ScoredMove = &list.moves[count];
         // is TT move
         if (smove.move.getMoveKey() == td.ttable.data.items[td.ttable.index(board.posKey)].bestMove)
-            smove.score = 15000000;
+            smove.score += 15000000;
         // is PV move, give the highest bonus
         if (td.searchData.scorePV)
             if (td.pvTable.moves[0][td.board.ply].getMoveKey() == smove.move.getMoveKey()) {
@@ -298,12 +298,14 @@ fn scoreMove(td: *ThreadData, list: *MoveList) void {
 }
 
 pub fn clearForSearch(td: *ThreadData) void {
+    td.searchInfo.timer.reset();
     td.pvTable = PVTable{};
     td.searchInfo.nodes = 0;
     td.searchData = .{};
+    td.ttable.ageUp();
 
     td.board.ply = 0;
-    td.timer = std.time.Timer.start() catch unreachable;
+    td.searchInfo.timer = std.time.Timer.start() catch unreachable;
 }
 
 fn enablePVScoring(td: *ThreadData, list: *MoveList) void {
@@ -316,7 +318,7 @@ fn enablePVScoring(td: *ThreadData, list: *MoveList) void {
 }
 
 pub fn checkUp(td: *ThreadData) void {
-    if (td.searchInfo.timeset and (td.timer.read() / std.time.ns_per_ms) > td.searchInfo.timeLim)
+    if (td.searchInfo.timeset and (td.searchInfo.timer.read() / std.time.ns_per_ms) > td.searchInfo.timeLim)
         td.searchInfo.stop = true;
 }
 
