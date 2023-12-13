@@ -114,6 +114,14 @@ pub fn negamax(td: *ThreadData, alpha_: i16, beta_: i16, depth_: u8) i16 {
     genLegal(board, &list);
     sortMoves(td, &list);
 
+    // no legal move on the board
+    if (list.count == 0) {
+        // checkmate
+        if (attacks_on_king != 0) return -CHECKMATE + @as(i16, @intCast(board.ply));
+        // stalemate
+        return 0;
+    }
+
     // null move pruning
     // don't do this in the endgame to prevent falling for zugzwang
     if (!isPvNode and
@@ -134,14 +142,6 @@ pub fn negamax(td: *ThreadData, alpha_: i16, beta_: i16, depth_: u8) i16 {
         if (nmp_score >= beta) return beta;
     }
 
-    // no legal move on the board
-    if (list.count == 0) {
-        // checkmate
-        if (attacks_on_king != 0) return -CHECKMATE + @as(i16, @intCast(board.ply));
-        // stalemate
-        return 0;
-    }
-
     if (td.searchData.followPV) enablePVScoring(td, &list);
     // set to true after the first alpha raise
     var foundPV: bool = false;
@@ -149,6 +149,15 @@ pub fn negamax(td: *ThreadData, alpha_: i16, beta_: i16, depth_: u8) i16 {
     for (0..list.count) |count| {
         const move = list.moves[count].move;
         const board_copy = board.*;
+
+        // see pruning
+        //{
+        //    const see_threshold = switch (move.isQuiet()) {
+        //        true => -90 * @as(i32, depth),
+        //        false => -35 * @as(i32, depth) * @as(i32, depth),
+        //    };
+        //    if (score > -CHECKMATE and depth <= 6 and !see(board, move, see_threshold)) continue;
+        //}
 
         //if (!isPvNode and attacks_on_king == 0) {
         //    // late move pruning
@@ -228,7 +237,6 @@ fn qsearch(td: *ThreadData, alpha_: i16, beta_: i16) i16 {
         const board_copy = board.*;
         const move = list.moves[count].move;
 
-        // TODO: create noisy movegen instead
         if (move.isQuiet()) continue;
         makeMove(board, move);
 
@@ -297,6 +305,81 @@ fn scoreMove(td: *ThreadData, list: *MoveList) void {
     }
 }
 
+pub fn see(board: *Board, move: Move, threshold: i32) bool {
+    @setRuntimeSafety(false);
+    // these moves are usually good ideas, so we can let them past
+    if (move.isCastle() or move.isEnPassant() or move.isPromo()) return true;
+
+    const src: u6 = move.src;
+    const dest: u6 = move.dest;
+    var side: u1 = board.side;
+
+    var value: i32 = SEE_VALUE[board.targetPiece(dest)] - threshold;
+
+    // bad capture, skip this move
+    if (value < 0) return false;
+
+    // value still beat the threshold even after losing a piece
+    value -= SEE_VALUE[move.piece];
+    if (value >= 0) return true;
+
+    var occupancy: u64 = board.allPieces();
+    popBit(&occupancy, src);
+    setBit(&occupancy, dest);
+
+    var all_attackers: u64 = (atk.getPawnAttacks(dest, 0) & board.pieces[0]) |
+        (atk.getPawnAttacks(dest, 1) & board.pieces[0]) |
+        (atk.getKnightAttacks(dest) & board.pieces[1]) |
+        (atk.getBishopAttacks(dest, occupancy) & board.pieces[2]) |
+        (atk.getRookAttacks(dest, occupancy) & board.pieces[3]) |
+        (atk.getQueenAttacks(dest, occupancy) & board.pieces[4]) |
+        (atk.getKingAttacks(dest) & board.pieces[5]);
+
+    // used for discover attack detection
+    const diag_sliders: u64 = board.pieces[2] | board.pieces[4];
+    const orth_sliders: u64 = board.pieces[3] | board.pieces[4];
+
+    side ^= 1;
+    while (true) {
+        all_attackers &= occupancy;
+
+        const our_attackers: u64 = all_attackers & board.occupancy[side];
+
+        if (our_attackers == 0) break; // we ran out of pieces
+
+        var attacker: u3 = 0;
+        for (0..5) |piece| { // exclude king from the loop
+            // loop for our least valuable piece
+            attacker = @intCast(piece);
+            if (our_attackers & board.pieceBB(attacker, side) != 0) break;
+        }
+
+        side ^= 1;
+
+        // negamax the value and see if it's within the threshold
+        value = -value - 1 - SEE_VALUE[attacker];
+        if (value >= 0) {
+            // we lose if our king engaged in the exchange,
+            // but opponenet has attackers left
+            if (attacker == 5 and all_attackers & board.occupancy[side] != 0)
+                side ^= 1;
+
+            break;
+        }
+
+        // play out the capture
+        popBit(&occupancy, @intCast(@ctz(our_attackers & board.pieceBB(attacker, side ^ 1))));
+
+        // check for discover attacks
+        if (attacker == 0 or attacker == 2 or attacker == 4)
+            all_attackers |= atk.getBishopAttacks(dest, occupancy) & diag_sliders;
+        if (attacker == 3 or attacker == 4)
+            all_attackers |= atk.getRookAttacks(dest, occupancy) & orth_sliders;
+    }
+    // whoever run out of piece lose the exchange
+    return side != board.side;
+}
+
 pub fn clearForSearch(td: *ThreadData) void {
     td.searchInfo.timer.reset();
     td.pvTable = PVTable{};
@@ -330,3 +413,5 @@ const MVV_LVA = [6][6]i32{
     [6]i32{ 101, 201, 301, 401, 501, 601 },
     [6]i32{ 100, 200, 300, 400, 500, 600 },
 };
+
+const SEE_VALUE = [7]i32{ 90, 300, 325, 525, 1000, 10000, 0 };

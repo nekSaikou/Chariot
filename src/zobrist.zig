@@ -43,7 +43,6 @@ pub fn genPosKey(board: *Board) u64 {
     return key;
 }
 
-// This piece of code is taken from another open source chess engine, Avalanche.
 const Random = struct {
     seed: u128,
 

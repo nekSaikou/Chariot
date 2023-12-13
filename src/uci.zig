@@ -20,7 +20,7 @@ const search = @import("search.zig").deepening;
 const TTable = @import("ttable.zig").TTable;
 
 var ttable: TTable = .{};
-threadlocal var pos: Board = .{};
+var pos: Board = .{};
 var info: SearchInfo = .{};
 
 pub fn mainLoop() !void {
