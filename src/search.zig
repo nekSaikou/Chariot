@@ -151,13 +151,13 @@ pub fn negamax(td: *ThreadData, alpha_: i16, beta_: i16, depth_: u8) i16 {
         const board_copy = board.*;
 
         // see pruning
-        //{
-        //    const see_threshold = switch (move.isQuiet()) {
-        //        true => -90 * @as(i32, depth),
-        //        false => -35 * @as(i32, depth) * @as(i32, depth),
-        //    };
-        //    if (score > -CHECKMATE and depth <= 6 and !see(board, move, see_threshold)) continue;
-        //}
+        {
+            const see_threshold = switch (move.isQuiet()) {
+                true => -90 * @as(i32, depth),
+                false => -35 * @as(i32, depth) * @as(i32, depth),
+            };
+            if (score > -CHECKMATE and depth <= 6 and !see(board, move, see_threshold)) continue;
+        }
 
         //if (!isPvNode and attacks_on_king == 0) {
         //    // late move pruning

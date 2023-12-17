@@ -15,7 +15,6 @@ pub const Board = struct {
     epSqr: ?u6 = null,
     ply: usize = 0,
     hmc: usize = 0, // for fifty moves rule
-    checks: usize = 0,
 
     // position key
     posKey: u64 = 0,
@@ -23,9 +22,6 @@ pub const Board = struct {
     // bitboards
     pieces: [6]u64 = [_]u64{0} ** 6,
     occupancy: [2]u64 = [_]u64{0} ** 2,
-    checkMask: u64 = 0,
-    pinDiag: u64 = 0,
-    pinOrth: u64 = 0,
 
     pub inline fn pieceBB(self: @This(), piece: u3, color: u1) u64 {
         return self.pieces[piece] & self.occupancy[color];

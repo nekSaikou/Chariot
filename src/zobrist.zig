@@ -9,7 +9,7 @@ pub var CastleKeys = std.mem.zeroes([16]u64);
 pub var SideKey: u64 = 0;
 
 pub fn initRandomKeys() void {
-    var seed = Random.new(557755);
+    var seed: Random = .{ .seed = 557755 };
     for (0..64) |sqr| {
         for (0..6) |pc| {
             PieceKeys[pc][sqr] = seed.rand();
@@ -53,11 +53,7 @@ const Random = struct {
         x ^= x >> 27;
         self.seed = x;
         var r = @as(u64, @truncate(x));
-        r = r ^ @as(u64, @truncate(x >> 64));
+        r ^= @as(u64, @truncate(x >> 64));
         return r;
-    }
-
-    pub fn new(seed: u128) Random {
-        return Random{ .seed = seed };
     }
 };

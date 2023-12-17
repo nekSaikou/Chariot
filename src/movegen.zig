@@ -4,17 +4,21 @@ const atk = @import("attacks.zig");
 const Board = @import("types.zig").Board;
 const Move = @import("types.zig").Move;
 const MoveList = @import("types.zig").MoveList;
-const MoveType = @import("types.zig").MoveType;
 const Square = @import("types.zig").Square;
 const getBit = @import("bitboard.zig").getBit;
 const setBit = @import("bitboard.zig").setBit;
 const popBit = @import("bitboard.zig").popBit;
 
+var pinDiag: u64 = 0;
+var pinOrth: u64 = 0;
+var checkMask: u64 = 0;
+var checkCount: usize = 0;
+
 pub fn genLegal(board: *Board, list: *MoveList) void {
     genThreatMask(board, board.side, board.kingSqr(board.side));
     genKingMoves(board, list);
     // only generate king moves during double check
-    if (board.checks == 2) return;
+    if (checkCount == 2) return;
     genPawnMoves(board, list);
     genKnightMoves(board, list);
     genBishopMoves(board, list);
@@ -35,9 +39,9 @@ fn genQueenMoves(board: *Board, list: *MoveList) void {
             const dest: u6 = @intCast(@ctz(diagonalAttacks));
             popBit(&diagonalAttacks, dest);
             // only generate move along the pinned diagonal if it exists
-            if (getBit(board.pinOrth, src) != 0) continue;
-            if (getBit(board.pinDiag, src) != 0 and getBit(board.pinDiag, dest) == 0) continue;
-            if (getBit(board.checkMask, dest) != 0)
+            if (getBit(pinOrth, src) != 0) continue;
+            if (getBit(pinDiag, src) != 0 and getBit(pinDiag, dest) == 0) continue;
+            if (getBit(checkMask, dest) != 0)
                 addMove(Move{
                     .src = src,
                     .dest = dest,
@@ -51,9 +55,9 @@ fn genQueenMoves(board: *Board, list: *MoveList) void {
             const dest: u6 = @intCast(@ctz(orthogonalAttacks));
             popBit(&orthogonalAttacks, dest);
             // only generate move along the pinned line if it exists
-            if (getBit(board.pinDiag, src) != 0) continue;
-            if (getBit(board.pinOrth, src) != 0 and getBit(board.pinOrth, dest) == 0) continue;
-            if (getBit(board.checkMask, dest) != 0)
+            if (getBit(pinDiag, src) != 0) continue;
+            if (getBit(pinOrth, src) != 0 and getBit(pinOrth, dest) == 0) continue;
+            if (getBit(checkMask, dest) != 0)
                 addMove(Move{
                     .src = src,
                     .dest = dest,
@@ -74,15 +78,15 @@ fn genRookMoves(board: *Board, list: *MoveList) void {
         popBit(&bitboard, src);
 
         // rook can't move when pinned diagonally
-        if (getBit(board.pinDiag, src) != 0) continue;
+        if (getBit(pinDiag, src) != 0) continue;
 
         var attacks = atk.getRookAttacks(src, board.allPieces()) & ~board.occupancy[side];
         while (attacks != 0) {
             const dest: u6 = @intCast(@ctz(attacks));
             popBit(&attacks, dest);
             // only generate move along the pinned line if it exists
-            if (getBit(board.pinOrth, src) != 0 and getBit(board.pinOrth, dest) == 0) continue;
-            if (getBit(board.checkMask, dest) != 0)
+            if (getBit(pinOrth, src) != 0 and getBit(pinOrth, dest) == 0) continue;
+            if (getBit(checkMask, dest) != 0)
                 addMove(Move{
                     .src = src,
                     .dest = dest,
@@ -103,15 +107,15 @@ fn genBishopMoves(board: *Board, list: *MoveList) void {
         popBit(&bitboard, src);
 
         // bishop can't move when pinned orthogonally
-        if (getBit(board.pinOrth, src) != 0) continue;
+        if (getBit(pinOrth, src) != 0) continue;
 
         var attacks = atk.getBishopAttacks(src, board.allPieces()) & ~board.occupancy[side];
         while (attacks != 0) {
             const dest: u6 = @intCast(@ctz(attacks));
             popBit(&attacks, dest);
             // only generate move along the pinned diagonal if it exists
-            if (getBit(board.pinDiag, src) != 0 and getBit(board.pinDiag, dest) == 0) continue;
-            if (getBit(board.checkMask, dest) != 0)
+            if (getBit(pinDiag, src) != 0 and getBit(pinDiag, dest) == 0) continue;
+            if (getBit(checkMask, dest) != 0)
                 addMove(Move{
                     .src = src,
                     .dest = dest,
@@ -132,13 +136,13 @@ fn genKnightMoves(board: *Board, list: *MoveList) void {
         popBit(&bitboard, src);
 
         // knight can't move at all when pinned
-        if (getBit(board.pinDiag | board.pinOrth, src) != 0) continue;
+        if (getBit(pinDiag | pinOrth, src) != 0) continue;
 
         var attacks = atk.getKnightAttacks(src) & ~board.occupancy[side];
         while (attacks != 0) {
             const dest: u6 = @intCast(@ctz(attacks));
             popBit(&attacks, dest);
-            if (getBit(board.checkMask, dest) != 0)
+            if (getBit(checkMask, dest) != 0)
                 addMove(Move{
                     .src = src,
                     .dest = dest,
@@ -261,9 +265,9 @@ fn genPawnMoves(board: *Board, list: *MoveList) void {
         // available push along the pin and skip the rest
         // promotion is not a concern because
         // pawn can't move on 7th rank while being pinned
-        if (getBit(board.pinOrth, src) != 0) {
-            if (push != null and getBit(board.pinOrth, push.?) != 0 and
-                getBit(board.checkMask, push.?) != 0)
+        if (getBit(pinOrth, src) != 0) {
+            if (push != null and getBit(pinOrth, push.?) != 0 and
+                getBit(checkMask, push.?) != 0)
                 addMove(Move{
                     .src = src,
                     .dest = push.?,
@@ -271,8 +275,8 @@ fn genPawnMoves(board: *Board, list: *MoveList) void {
                     .piece = 0,
                     .color = side,
                 }, list);
-            if (doublePush != null and getBit(board.pinOrth, doublePush.?) != 0 and
-                getBit(board.checkMask, doublePush.?) != 0)
+            if (doublePush != null and getBit(pinOrth, doublePush.?) != 0 and
+                getBit(checkMask, doublePush.?) != 0)
                 addMove(Move{
                     .src = src,
                     .dest = doublePush.?,
@@ -292,12 +296,12 @@ fn genPawnMoves(board: *Board, list: *MoveList) void {
             const dest: u6 = @intCast(@ctz(attacks));
             popBit(&attacks, dest);
             // reiterate if capture is not on check mask
-            if (getBit(board.checkMask, dest) == 0) continue;
+            if (getBit(checkMask, dest) == 0) continue;
             // when a pawn is pinned diagonally, we add the capture
             // along the pinned diagonal and the rest of the moves
             // can be safely skipped
-            if (getBit(board.pinDiag, src) != 0) {
-                if (getBit(board.pinDiag, dest) != 0) {
+            if (getBit(pinDiag, src) != 0) {
+                if (getBit(pinDiag, dest) != 0) {
                     // check for promotion first
                     if (getBit(promotionRank[side], src) != 0) {
                         for (12..16) |promo| {
@@ -351,9 +355,9 @@ fn genPawnMoves(board: *Board, list: *MoveList) void {
         }
         // can't push pawns while pinned diagonally
         // so this check is required
-        if (getBit(board.pinDiag, src) == 0) {
+        if (getBit(pinDiag, src) == 0) {
             if (doublePush != null and
-                getBit(board.checkMask, doublePush.?) != 0)
+                getBit(checkMask, doublePush.?) != 0)
                 addMove(Move{
                     .src = src,
                     .dest = doublePush.?,
@@ -362,7 +366,7 @@ fn genPawnMoves(board: *Board, list: *MoveList) void {
                     .color = side,
                 }, list);
             if (push != null and
-                getBit(board.checkMask, push.?) != 0)
+                getBit(checkMask, push.?) != 0)
                 if (getBit(promotionRank[side], src) != 0) {
                     for (8..12) |promo| {
                         addMove(Move{
@@ -386,7 +390,7 @@ fn genPawnMoves(board: *Board, list: *MoveList) void {
 
 pub inline fn genThreatMask(board: *Board, color: u1, sqr: u6) void {
     const new_mask = genCheckMask(board, color, sqr);
-    board.checkMask = if (new_mask != 0) new_mask else NOCHECK;
+    checkMask = if (new_mask != 0) new_mask else NOCHECK;
     genPinMask(board, color, sqr);
 }
 
@@ -403,25 +407,25 @@ fn genCheckMask(board: *Board, color: u1, sqr: u6) u64 {
         board.pieceBB(4, color ^ 1)) &
         atk.getRookAttacks(sqr, occupancy) &
         ~board.occupancy[color];
-    board.checks = 0;
+    checkCount = 0;
 
     if (pawn_mask != 0) {
         checks |= pawn_mask;
-        board.checks += 1;
+        checkCount += 1;
     }
     if (knight_mask != 0) {
         checks |= knight_mask;
-        board.checks += 1;
+        checkCount += 1;
     }
     if (bishop_mask != 0) {
-        if (@popCount(bishop_mask) > 1) board.checks += 1;
+        if (@popCount(bishop_mask) > 1) checkCount += 1;
         checks |= atk.betweenSqr[sqr][@ctz(bishop_mask)] | (@as(u64, 1) << @intCast(@ctz(bishop_mask)));
-        board.checks += 1;
+        checkCount += 1;
     }
     if (rook_mask != 0) {
-        if (@popCount(rook_mask) > 1) board.checks += 1;
+        if (@popCount(rook_mask) > 1) checkCount += 1;
         checks |= atk.betweenSqr[sqr][@ctz(rook_mask)] | (@as(u64, 1) << @intCast(@ctz(rook_mask)));
-        board.checks += 1;
+        checkCount += 1;
     }
     return checks;
 }
@@ -436,8 +440,8 @@ fn genPinMask(board: *Board, color: u1, sqr: u6) void {
         board.pieceBB(4, color ^ 1));
     var diag_pin: u64 = 0;
     var orth_pin: u64 = 0;
-    board.pinDiag = 0;
-    board.pinOrth = 0;
+    pinDiag = 0;
+    pinOrth = 0;
 
     while (diag_mask != 0) {
         const index = @as(u6, @intCast(@ctz(diag_mask)));
@@ -453,8 +457,8 @@ fn genPinMask(board: *Board, color: u1, sqr: u6) void {
             orth_pin |= possible_pin;
         popBit(&orth_mask, index);
     }
-    board.pinDiag = diag_pin;
-    board.pinOrth = orth_pin;
+    pinDiag = diag_pin;
+    pinOrth = orth_pin;
 }
 
 inline fn addMove(move: Move, list: *MoveList) void {

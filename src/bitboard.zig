@@ -8,8 +8,7 @@ pub inline fn setBit(bitboard: *u64, square: u6) void {
 }
 
 pub inline fn popBit(bitboard: *u64, square: u6) void {
-    if (getBit(bitboard.*, square) != 0)
-        bitboard.* ^= (@as(u64, 1) << square);
+    bitboard.* ^= (@as(u64, 1) << square);
 }
 
 pub inline fn getBit(bitboard: u64, square: u6) u64 {
